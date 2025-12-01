@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -20,6 +21,9 @@ public class MacroPlayer : IMacroPlayer, IDisposable
     private bool _disposed;
     private readonly IMousePositionProvider? _positionProvider;
     private readonly PlaybackValidator _validator;
+    
+    // Cached reflection for X11 cursor movement (performance optimization)
+    private readonly MethodInfo? _x11SetPositionMethod;
     
     // Track current position for absolute coordinate playback
     private int _currentX;
@@ -48,13 +52,20 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         _positionProvider = positionProvider;
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         
-        if (_positionProvider.IsSupported)
+        // Cache reflection for X11 SetAbsolutePositionAsync method (one-time cost)
+        if (_positionProvider != null)
         {
-            Log.Information("[MacroPlayer] Using position provider: {ProviderName}", _positionProvider.ProviderName);
-        }
-        else
-        {
-            Log.Warning("[MacroPlayer] Position provider not supported, using relative coordinates");
+            _x11SetPositionMethod = _positionProvider.GetType()
+                .GetMethod("SetAbsolutePositionAsync", new[] { typeof(int), typeof(int) });
+            
+            if (_positionProvider.IsSupported)
+            {
+                Log.Information("[MacroPlayer] Using position provider: {ProviderName}", _positionProvider.ProviderName);
+            }
+            else
+            {
+                Log.Warning("[MacroPlayer] Position provider not supported, using relative coordinates");
+            }
         }
     }
     
@@ -159,10 +170,14 @@ public class MacroPlayer : IMacroPlayer, IDisposable
             var firstEvent = macro.Events.Count > 0 ? macro.Events[0] : null;
             if (firstEvent != null && _cachedScreenWidth > 0 && _cachedScreenHeight > 0)
             {
-                Log.Information("[MacroPlayer] Moving to start position: ({X}, {Y})", firstEvent.X, firstEvent.Y);
-                _device.MoveAbsolute(firstEvent.X, firstEvent.Y);
-                _currentX = firstEvent.X;
-                _currentY = firstEvent.Y;
+                // Clamp to valid screen coordinates (defensive programming)
+                int startX = Math.Clamp(firstEvent.X, 0, _cachedScreenWidth);
+                int startY = Math.Clamp(firstEvent.Y, 0, _cachedScreenHeight);
+                
+                Log.Information("[MacroPlayer] Moving to start position: ({X}, {Y})", startX, startY);
+                _device.MoveAbsolute(startX, startY);
+                _currentX = startX;
+                _currentY = startY;
                 _positionInitialized = true;
             }
             
@@ -347,7 +362,20 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                         targetAbsY = _currentY + ev.Y;
                     }
 
-                    _device.MoveAbsolute(targetAbsX, targetAbsY);
+                    // CRITICAL FIX: On X11, use XWarpPointer instead of uinput absolute positioning
+                    // uinput EV_ABS doesn't move the cursor on X11, but XWarpPointer does
+                    // Use cached reflection method (set in constructor for performance)
+                    if (_x11SetPositionMethod != null)
+                    {
+                        // X11 provider - use XWarpPointer
+                        _x11SetPositionMethod.Invoke(_positionProvider, new object[] { targetAbsX, targetAbsY });
+                    }
+                    else
+                    {
+                        // Wayland: use uinput absolute positioning (works fine on Wayland)
+                        _device.MoveAbsolute(targetAbsX, targetAbsY);
+                    }
+
                     _currentX = targetAbsX;
                     _currentY = targetAbsY;
                 }

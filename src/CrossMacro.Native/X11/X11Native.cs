@@ -1,0 +1,128 @@
+using System;
+using System.Runtime.InteropServices;
+
+namespace CrossMacro.Native.X11
+{
+    /// <summary>
+    /// P/Invoke declarations for Xlib (X11) functions
+    /// </summary>
+    public static class X11Native
+    {
+        private const string LibX11 = "libX11.so.6";
+        
+        static X11Native()
+        {
+            // Enable thread safety for X11 calls
+            // Must be called before any other Xlib calls
+            XInitThreads();
+        }
+
+        /// <summary>
+        /// Opens a connection to the X server
+        /// </summary>
+        /// <param name="display">Display name (null for default DISPLAY env var)</param>
+        /// <returns>Display pointer, or IntPtr.Zero on failure</returns>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr XOpenDisplay(string? display);
+
+        /// <summary>
+        /// Closes a connection to the X server
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int XCloseDisplay(IntPtr display);
+
+        /// <summary>
+        /// Returns the root window for the default screen
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr XDefaultRootWindow(IntPtr display);
+
+        /// <summary>
+        /// Returns the default screen number referenced by the XOpenDisplay function
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int XDefaultScreen(IntPtr display);
+
+        /// <summary>
+        /// Returns the width of the screen in pixels
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int XDisplayWidth(IntPtr display, int screen);
+
+        /// <summary>
+        /// Returns the height of the screen in pixels
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int XDisplayHeight(IntPtr display, int screen);
+
+        /// <summary>
+        /// Gets the current pointer coordinates and modifier state
+        /// </summary>
+        /// <param name="display">X display connection</param>
+        /// <param name="window">Window to query (usually root window)</param>
+        /// <param name="root_return">Root window the pointer is on</param>
+        /// <param name="child_return">Child window pointer is in</param>
+        /// <param name="root_x_return">X coordinate relative to root window</param>
+        /// <param name="root_y_return">Y coordinate relative to root window</param>
+        /// <param name="win_x_return">X coordinate relative to queried window</param>
+        /// <param name="win_y_return">Y coordinate relative to queried window</param>
+        /// <param name="mask_return">Current modifier keys and pointer buttons</param>
+        /// <returns>True if pointer is on the same screen as window</returns>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool XQueryPointer(
+            IntPtr display,
+            IntPtr window,
+            out IntPtr root_return,
+            out IntPtr child_return,
+            out int root_x_return,
+            out int root_y_return,
+            out int win_x_return,
+            out int win_y_return,
+            out uint mask_return);
+
+        /// <summary>
+        /// Initializes Xlib support for concurrent threads
+        /// Must be called before any other Xlib calls in multi-threaded applications
+        /// </summary>
+        /// <returns>Non-zero on success</returns>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int XInitThreads();
+
+        /// <summary>
+        /// Returns the root window of the specified screen
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr XRootWindow(IntPtr display, int screen_number);
+
+        /// <summary>
+        /// Moves the pointer to the specified coordinates
+        /// </summary>
+        /// <param name="display">X display connection</param>
+        /// <param name="src_w">Source window (IntPtr.Zero for none)</param>
+        /// <param name="dest_w">Destination window (usually root window)</param>
+        /// <param name="src_x">Source X</param>
+        /// <param name="src_y">Source Y</param>
+        /// <param name="src_width">Source width</param>
+        /// <param name="src_height">Source height</param>
+        /// <param name="dest_x">Destination X</param>
+        /// <param name="dest_y">Destination Y</param>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void XWarpPointer(
+            IntPtr display,
+            IntPtr src_w,
+            IntPtr dest_w,
+            int src_x,
+            int src_y,
+            uint src_width,
+            uint src_height,
+            int dest_x,
+            int dest_y);
+
+        /// <summary>
+        /// Flushes the output buffer (ensures commands are sent to X server immediately)
+        /// </summary>
+        [DllImport(LibX11, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int XFlush(IntPtr display);
+    }
+}

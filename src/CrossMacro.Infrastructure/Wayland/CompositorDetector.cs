@@ -13,17 +13,27 @@ namespace CrossMacro.Infrastructure.Wayland
         /// </summary>
         public static CompositorType DetectCompositor()
         {
-            // Check session type (X11 vs Wayland) - for future use
+            // Check session type (X11 vs Wayland)
             var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
             var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
+            var x11Display = Environment.GetEnvironmentVariable("DISPLAY");
             
-            // Currently we only support Wayland, but this check is here for future X11 filtering
             var isWayland = !string.IsNullOrEmpty(waylandDisplay) || 
                            string.Equals(sessionType, "wayland", StringComparison.OrdinalIgnoreCase);
             
+            var isX11 = !string.IsNullOrEmpty(x11Display) ||
+                       string.Equals(sessionType, "x11", StringComparison.OrdinalIgnoreCase);
+
+            // Prioritize X11 detection if both are present (XWayland scenario)
+            if (isX11 && !isWayland)
+            {
+                Log.Information("[CompositorDetector] X11 session detected");
+                return CompositorType.X11;
+            }
+            
             if (!isWayland)
             {
-                Log.Warning("[CompositorDetector] X11 session detected - not supported");
+                Log.Warning("[CompositorDetector] No known display server detected");
                 return CompositorType.Unknown;
             }
 

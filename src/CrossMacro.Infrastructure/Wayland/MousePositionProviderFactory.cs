@@ -19,6 +19,7 @@ namespace CrossMacro.Infrastructure.Wayland
             
             IMousePositionProvider provider = compositorType switch
             {
+                CompositorType.X11 => new X11PositionProvider(),
                 CompositorType.HYPRLAND => new HyprlandPositionProvider(),
                 CompositorType.KDE => new KdePositionProvider(),
                 CompositorType.GNOME => new GnomePositionProvider(),

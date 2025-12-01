@@ -6,6 +6,7 @@ namespace CrossMacro.Infrastructure.Wayland
     public enum CompositorType
     {
         Unknown,
+        X11,
         HYPRLAND,
         KDE,
         GNOME,
