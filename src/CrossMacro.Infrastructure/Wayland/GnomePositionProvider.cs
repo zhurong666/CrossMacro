@@ -88,6 +88,9 @@ export default class CursorSpyExtension extends Extension {
         private bool _isInitialized;
         private (int Width, int Height)? _cachedResolution;
         private bool _disposed;
+        
+        // Event for notifying about extension status
+        public event EventHandler<string>? ExtensionStatusChanged;
 
         public string ProviderName => "GNOME Shell Extension (DBus)";
         public bool IsSupported { get; private set; }
@@ -102,9 +105,6 @@ export default class CursorSpyExtension extends Extension {
 
             if (IsSupported)
             {
-                // Ensure extension is installed before attempting to connect
-                EnsureExtensionInstalled();
-                
                 // Fire and forget, but exceptions are caught in InitializeAsync
                 _ = Task.Run(InitializeAsync);
             }
@@ -121,95 +121,201 @@ export default class CursorSpyExtension extends Extension {
                 var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 var extensionPath = Path.Combine(homeDir, ".local/share/gnome-shell/extensions/crossmacro@zynix.net");
                 
-                // Check if extension already exists
-                if (Directory.Exists(extensionPath) && 
+                bool extensionFilesExist = Directory.Exists(extensionPath) && 
                     File.Exists(Path.Combine(extensionPath, "extension.js")) &&
-                    File.Exists(Path.Combine(extensionPath, "metadata.json")))
+                    File.Exists(Path.Combine(extensionPath, "metadata.json"));
+                
+                if (!extensionFilesExist)
                 {
-                    Log.Debug("[GnomePositionProvider] Extension already installed at {Path}", extensionPath);
-                    return;
-                }
-
-                // Install extension
-                Log.Information("[GnomePositionProvider] Installing GNOME Shell extension to {Path}", extensionPath);
-                Directory.CreateDirectory(extensionPath);
-                
-                File.WriteAllText(Path.Combine(extensionPath, "extension.js"), EXTENSION_JS);
-                File.WriteAllText(Path.Combine(extensionPath, "metadata.json"), METADATA_JSON);
-                
-                // Wait for files to be fully written to disk
-                var extensionJsPath = Path.Combine(extensionPath, "extension.js");
-                var metadataJsonPath = Path.Combine(extensionPath, "metadata.json");
-                var maxWaitMs = 3000; // Maximum 3 seconds
-                var elapsedMs = 0;
-                
-                while (elapsedMs < maxWaitMs)
-                {
-                    var extensionJsInfo = new FileInfo(extensionJsPath);
-                    var metadataJsonInfo = new FileInfo(metadataJsonPath);
+                    // Install extension files
+                    Log.Information("[GnomePositionProvider] Installing GNOME Shell extension to {Path}", extensionPath);
+                    Directory.CreateDirectory(extensionPath);
                     
-                    if (extensionJsInfo.Exists && extensionJsInfo.Length > 0 &&
-                        metadataJsonInfo.Exists && metadataJsonInfo.Length > 0)
-                    {
-                        Log.Debug("[GnomePositionProvider] Files verified on disk after {Ms}ms", elapsedMs);
-                        break;
-                    }
+                    File.WriteAllText(Path.Combine(extensionPath, "extension.js"), EXTENSION_JS);
+                    File.WriteAllText(Path.Combine(extensionPath, "metadata.json"), METADATA_JSON);
                     
-                    System.Threading.Thread.Sleep(100);
-                    elapsedMs += 100;
-                }
-                
-                if (elapsedMs >= maxWaitMs)
-                {
-                    Log.Warning("[GnomePositionProvider] File verification timeout, proceeding anyway");
-                }
-                
-                // Try to enable the extension automatically
-                try
-                {
-                    var enableProcess = new System.Diagnostics.Process
+                    // Wait for files to be fully written to disk
+                    var extensionJsPath = Path.Combine(extensionPath, "extension.js");
+                    var metadataJsonPath = Path.Combine(extensionPath, "metadata.json");
+                    var maxWaitMs = 3000;
+                    var elapsedMs = 0;
+                    
+                    while (elapsedMs < maxWaitMs)
                     {
-                        StartInfo = new System.Diagnostics.ProcessStartInfo
+                        var extensionJsInfo = new FileInfo(extensionJsPath);
+                        var metadataJsonInfo = new FileInfo(metadataJsonPath);
+                        
+                        if (extensionJsInfo.Exists && extensionJsInfo.Length > 0 &&
+                            metadataJsonInfo.Exists && metadataJsonInfo.Length > 0)
                         {
-                            FileName = "gnome-extensions",
-                            Arguments = "enable crossmacro@zynix.net",
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            UseShellExecute = false,
-                            CreateNoWindow = true
+                            Log.Debug("[GnomePositionProvider] Files verified on disk after {Ms}ms", elapsedMs);
+                            break;
                         }
-                    };
-                    
-                    enableProcess.Start();
-                    enableProcess.WaitForExit();
-                    
-                    if (enableProcess.ExitCode == 0)
-                    {
-                        Log.Information("[GnomePositionProvider] Extension enabled automatically");
+                        
+                        System.Threading.Thread.Sleep(100);
+                        elapsedMs += 100;
                     }
-                    else
+                    
+                    if (elapsedMs >= maxWaitMs)
                     {
-                        Log.Debug("[GnomePositionProvider] Extension enable returned code {Code}, manual enable may be needed", enableProcess.ExitCode);
+                        Log.Warning("[GnomePositionProvider] File verification timeout, proceeding anyway");
                     }
+                    
+                    Log.Information("[GnomePositionProvider] Extension files installed successfully");
                 }
-                catch (Exception enableEx)
+                else
                 {
-                    Log.Debug(enableEx, "[GnomePositionProvider] Could not auto-enable extension (gnome-extensions command not available)");
+                    Log.Debug("[GnomePositionProvider] Extension files already exist at {Path}", extensionPath);
                 }
                 
-                Log.Warning("[GnomePositionProvider] Extension installed successfully!");
-                Log.Warning("[GnomePositionProvider] IMPORTANT: You must log out and log back in to activate the extension.");
+                // Always check if extension is enabled, regardless of file existence
+                ValidateExtensionStatus();
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "[GnomePositionProvider] Failed to install GNOME extension");
+                ExtensionStatusChanged?.Invoke(this, "Failed to install GNOME extension");
             }
+        }
+        
+        private bool CheckExtensionEnabled()
+        {
+            try
+            {
+                using var checkProcess = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "gnome-extensions",
+                        Arguments = "list --enabled",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                
+                checkProcess.Start();
+                var output = checkProcess.StandardOutput.ReadToEnd();
+                checkProcess.WaitForExit();
+                
+                if (checkProcess.ExitCode == 0)
+                {
+                    bool isEnabled = output.Contains("crossmacro@zynix.net");
+                    Log.Debug("[GnomePositionProvider] Extension enabled status: {Status}", isEnabled);
+                    return isEnabled;
+                }
+                else
+                {
+                    var error = checkProcess.StandardError.ReadToEnd();
+                    Log.Warning("[GnomePositionProvider] Failed to check extension status: {Error}", error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "[GnomePositionProvider] Could not check extension status (gnome-extensions command may not be available)");
+                return false;
+            }
+        }
+        
+        private bool EnableExtension()
+        {
+            // Try to enable the extension automatically
+            try
+            {
+                using var enableProcess = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "gnome-extensions",
+                        Arguments = "enable crossmacro@zynix.net",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                
+                enableProcess.Start();
+                var output = enableProcess.StandardOutput.ReadToEnd();
+                var error = enableProcess.StandardError.ReadToEnd();
+                enableProcess.WaitForExit();
+                
+                if (enableProcess.ExitCode == 0)
+                {
+                    Log.Information("[GnomePositionProvider] Extension enabled successfully");
+                    return true;
+                }
+                else
+                {
+                    Log.Warning("[GnomePositionProvider] Failed to enable extension. Exit code: {Code}, Error: {Error}", 
+                        enableProcess.ExitCode, error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[GnomePositionProvider] Exception while trying to enable extension");
+                return false;
+            }
+        }
+        
+        private void ValidateExtensionStatus()
+        {
+            // Check if extension is enabled
+            bool isEnabled = CheckExtensionEnabled();
+            
+            if (!isEnabled)
+            {
+                Log.Information("[GnomePositionProvider] Extension is not enabled, attempting to enable...");
+                
+                // Try to enable it
+                bool enableSuccess = EnableExtension();
+                
+                if (enableSuccess)
+                {
+                    // Verify it's actually enabled now
+                    System.Threading.Thread.Sleep(500); // Give it a moment
+                    isEnabled = CheckExtensionEnabled();
+                    
+                    if (isEnabled)
+                    {
+                        Log.Information("[GnomePositionProvider] Extension enabled and verified successfully");
+                        ExtensionStatusChanged?.Invoke(this, "GNOME extension enabled successfully");
+                    }
+                    else
+                    {
+                        Log.Warning("[GnomePositionProvider] Extension enable command succeeded but verification failed");
+                        NotifyExtensionIssue("GNOME extension requires logout/login to activate");
+                    }
+                }
+                else
+                {
+                    Log.Warning("[GnomePositionProvider] Failed to enable extension automatically");
+                    NotifyExtensionIssue("Please enable GNOME extension manually or restart your session");
+                }
+            }
+            else
+            {
+                Log.Debug("[GnomePositionProvider] Extension is already enabled");
+            }
+        }
+        
+        private void NotifyExtensionIssue(string message)
+        {
+            Log.Warning("[GnomePositionProvider] {Message}", message);
+            ExtensionStatusChanged?.Invoke(this, message);
         }
 
         private async Task InitializeAsync()
         {
             try
             {
+                // Ensure extension is installed/enabled before connecting
+                // This runs on a background thread now, so it won't block startup
+                EnsureExtensionInstalled();
+
                 _connection = new Connection(Address.Session);
                 await _connection.ConnectAsync();
                 _proxy = _connection.CreateProxy<IMacroHelper>("org.example.MacroHelper", "/org/example/MacroHelper");
