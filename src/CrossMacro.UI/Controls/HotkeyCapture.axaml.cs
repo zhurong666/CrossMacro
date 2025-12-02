@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -55,6 +56,60 @@ public partial class HotkeyCapture : UserControl
     {
         InitializeComponent();
         UpdateDisplayString();
+        
+        // Add hover effects manually
+        PointerEntered += OnPointerEntered;
+        PointerExited += OnPointerExited;
+    }
+    
+    private void OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        ApplyHoverEffect();
+    }
+    
+    private void OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        // Don't remove hover effect if we're capturing a key
+        if (!IsCapturing)
+        {
+            RemoveHoverEffect();
+        }
+    }
+    
+    private void ApplyHoverEffect()
+    {
+        var border = this.FindControl<Border>("HotkeyBorder");
+        var icon = this.FindControl<Path>("EditIcon");
+        
+        if (border != null)
+        {
+            border.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#475569"));
+            border.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#64748B"));
+            border.BoxShadow = Avalonia.Media.BoxShadows.Parse("0 0 0 2 #1A94A3B8");
+        }
+        
+        if (icon != null)
+        {
+            icon.Opacity = 1.0;
+        }
+    }
+    
+    private void RemoveHoverEffect()
+    {
+        var border = this.FindControl<Border>("HotkeyBorder");
+        var icon = this.FindControl<Path>("EditIcon");
+        
+        if (border != null)
+        {
+            border.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#334155"));
+            border.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("Transparent"));
+            border.BoxShadow = default;
+        }
+        
+        if (icon != null)
+        {
+            icon.Opacity = 0.5;
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -94,6 +149,7 @@ public partial class HotkeyCapture : UserControl
 
         IsCapturing = true;
         UpdateDisplayString();
+        ApplyHoverEffect(); // Keep hover effect during capture
 
         try
         {
@@ -107,6 +163,12 @@ public partial class HotkeyCapture : UserControl
                 HotkeyChanged?.Invoke(this, newHotkey);
                 IsCapturing = false;
                 UpdateDisplayString();
+                
+                // Check if pointer is still over the control
+                if (!IsPointerOver)
+                {
+                    RemoveHoverEffect();
+                }
             });
         }
         catch (Exception ex)
@@ -115,6 +177,13 @@ public partial class HotkeyCapture : UserControl
             {
                 IsCapturing = false;
                 UpdateDisplayString();
+                
+                // Check if pointer is still over the control
+                if (!IsPointerOver)
+                {
+                    RemoveHoverEffect();
+                }
+                
                 Console.WriteLine($"Capture failed: {ex}");
             });
         }

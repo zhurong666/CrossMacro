@@ -2,22 +2,72 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="120" d:DesignHeight="32"
+             mc:Ignorable="d" d:DesignWidth="160" d:DesignHeight="36"
              x:Class="CrossMacro.UI.Controls.HotkeyCapture"
              x:Name="Root"
              Focusable="True">
     
-    <Border Background="#334155" 
-            CornerRadius="4" 
-            Padding="8,4"
+    <Border x:Name="HotkeyBorder"
+            Background="#334155"
+            BorderBrush="Transparent"
+            BorderThickness="1"
+            CornerRadius="6" 
+            Padding="10,6,10,6"
             Cursor="Hand"
             PointerPressed="OnPointerPressed">
-        <TextBlock x:Name="DisplayText"
-                   Text="{Binding #Root.DisplayString}"
-                   FontWeight="Bold" 
-                   Foreground="#F1F5F9" 
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"/>
+        <Border.Styles>
+            <!-- Hover Effect on Border -->
+            <Style Selector="Border:pointerover">
+                <Setter Property="Background" Value="#475569"/>
+                <Setter Property="BorderBrush" Value="#64748B"/>
+                <Setter Property="BoxShadow" Value="0 0 0 2 #1A94A3B8"/>
+            </Style>
+            
+            <!-- Hover Effect on Icon -->
+            <Style Selector="Border:pointerover Path#EditIcon">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+        </Border.Styles>
+        
+        <Border.Transitions>
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2"/>
+            </Transitions>
+        </Border.Transitions>
+        
+        <Grid ColumnDefinitions="*,Auto">
+            <!-- Hotkey Display -->
+            <TextBlock Grid.Column="0"
+                       x:Name="DisplayText"
+                       Text="{Binding #Root.DisplayString}"
+                       FontWeight="Bold" 
+                       Foreground="#F1F5F9" 
+                       FontFamily="Consolas,Courier New,monospace"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0"/>
+            
+            <!-- Edit Icon (SVG Path) -->
+            <Viewbox Grid.Column="1"
+                     Width="14" 
+                     Height="14"
+                     VerticalAlignment="Center">
+                <Canvas Width="24" Height="24">
+                    <Path x:Name="EditIcon"
+                          Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                          Fill="#F1F5F9"
+                          Opacity="0.5">
+                        <Path.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Path.Transitions>
+                    </Path>
+                </Canvas>
+            </Viewbox>
+        </Grid>
     </Border>
     
 </UserControl>
