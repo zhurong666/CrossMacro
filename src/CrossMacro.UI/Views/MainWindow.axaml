@@ -18,7 +18,7 @@
         CanResize="False">
 
     <Design.DataContext>
-        <vm:MainWindowViewModel/>
+        <vm:DesignMainWindowViewModel/>
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="0">
@@ -235,19 +235,19 @@
                                     <controls:HotkeyCapture Grid.Row="0" Grid.Column="0" 
                                                            Hotkey="{Binding RecordingHotkey, Mode=TwoWay}" 
                                                            Margin="0,0,12,8"
-                                                           MinWidth="80"/>
+                                                           MinWidth="140"/>
                                     <TextBlock Grid.Row="0" Grid.Column="1" Text="Toggle Recording (Start/Stop)" VerticalAlignment="Center" Foreground="#CBD5E1"/>
                                     
                                     <controls:HotkeyCapture Grid.Row="1" Grid.Column="0" 
                                                            Hotkey="{Binding PlaybackHotkey, Mode=TwoWay}" 
                                                            Margin="0,0,12,8"
-                                                           MinWidth="80"/>
+                                                           MinWidth="140"/>
                                     <TextBlock Grid.Row="1" Grid.Column="1" Text="Toggle Playback (Start/Stop)" VerticalAlignment="Center" Foreground="#CBD5E1"/>
                                     
                                     <controls:HotkeyCapture Grid.Row="2" Grid.Column="0" 
                                                            Hotkey="{Binding PauseHotkey, Mode=TwoWay}" 
                                                            Margin="0,0,12,0"
-                                                           MinWidth="80"/>
+                                                           MinWidth="140"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" Text="Pause/Resume Playback" VerticalAlignment="Center" Foreground="#CBD5E1"/>
                                 </Grid>
                             </StackPanel>
