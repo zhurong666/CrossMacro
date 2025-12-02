@@ -79,5 +79,6 @@ public class DesignMainWindowViewModel : MainWindowViewModel
         public Task<AppSettings> LoadAsync() => Task.FromResult(Current);
         public AppSettings Load() => Current;
         public Task SaveAsync() => Task.CompletedTask;
+        public void Save() { }
     }
 }

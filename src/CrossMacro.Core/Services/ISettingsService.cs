@@ -27,4 +27,9 @@ public interface ISettingsService
     /// Saves current settings to disk
     /// </summary>
     Task SaveAsync();
+    
+    /// <summary>
+    /// Saves current settings to disk synchronously
+    /// </summary>
+    void Save();
 }

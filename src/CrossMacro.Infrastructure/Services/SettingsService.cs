@@ -69,7 +69,7 @@ public class SettingsService : ISettingsService
             {
                 Log.Information("Settings file not found, using defaults");
                 _currentSettings = new AppSettings();
-                SaveAsync().Wait(); // Safe to wait here as we're already in a sync context and SaveAsync uses ConfigureAwait(false) implicitly or we can make a sync Save
+                Save(); // Use synchronous save to avoid deadlock
                 return _currentSettings;
             }
 
@@ -101,6 +101,30 @@ public class SettingsService : ISettingsService
 
             var json = JsonSerializer.Serialize(_currentSettings, options);
             await File.WriteAllTextAsync(_settingsFilePath, json);
+            
+            Log.Information("Settings saved to {Path}", _settingsFilePath);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save settings");
+            throw;
+        }
+    }
+
+    public void Save()
+    {
+        try
+        {
+            // Ensure config directory exists
+            Directory.CreateDirectory(_configDirectory);
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true
+            };
+
+            var json = JsonSerializer.Serialize(_currentSettings, options);
+            File.WriteAllText(_settingsFilePath, json);
             
             Log.Information("Settings saved to {Path}", _settingsFilePath);
         }
