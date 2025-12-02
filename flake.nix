@@ -77,6 +77,7 @@
           dotnetFlags = [
             "-p:PublishSingleFile=false"
             "-p:SelfContained=false"
+            "-p:Version=${version}"
           ];
 
           # Ensure libraries are found during build/test if needed
