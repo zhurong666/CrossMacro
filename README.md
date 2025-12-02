@@ -1,6 +1,6 @@
 # CrossMacro
 
-A modern mouse macro recording and playback application for Linux Wayland and X11.
+A modern mouse and keyboard macro recording and playback application for Linux Wayland and X11.
 
 ## Screenshots
 
@@ -23,16 +23,23 @@ A modern mouse macro recording and playback application for Linux Wayland and X1
 ## 🎯 Features
 
 - **Mouse Event Recording**: Record mouse clicks and movements
-- **Playback**: Replay recorded macros
-- **Loop Mode**: Continuously repeat macros
+- **Keyboard Event Recording**: Record keyboard key presses
+- **Playback**: Replay recorded macros with pause/resume support
+- **Loop Mode**: Continuously repeat macros with customizable repeat count and delay
 - **Speed Control**: Adjust playback speed from 0.25x to 5.0x
-- **File Operations**: Save/load macros in .macro format
-- **Global Hotkeys**: Global hotkey support
+- **File Operations**: Save/load macros in .macro format (you choose where to save)
+- **Global Hotkeys**: Customizable global hotkey support
+  - **F8**: Start/Stop recording
+  - **F9**: Start/Stop playback
+  - **F10**: Pause/Resume playback
+- **System Tray Icon**: Minimize to tray and control macros from system tray (optional)
 
 ## ⚙️ Setup & Configuration
 
+> **⚠️ Important**: Complete this setup **before** installing the application.
+
 <details>
-<summary>⚠️ Required Permissions (Read First)</summary>
+<summary><strong>Required Permissions (Click to expand)</strong></summary>
 
 To record and play macros without `sudo`, you must configure permissions:
 
@@ -50,14 +57,17 @@ To record and play macros without `sudo`, you must configure permissions:
    ```bash
    sudo udevadm control --reload-rules && sudo udevadm trigger
    ```
-   *Note: You may need to logout and login again for group changes to take effect.*
+   
+**Important:** Log out and log back in for group changes to take effect.
 
 </details>
 
 <details>
-<summary>⚙️ Additional Setup for GNOME Users</summary>
+<summary><strong>GNOME Users Only (Click to expand)</strong></summary>
 
-CrossMacro automatically installs a GNOME Shell extension to capture mouse positions. To enable this extension, you need an extension manager application:
+CrossMacro requires a GNOME Shell extension to capture mouse positions. The extension is **automatically installed** when you first run CrossMacro.
+
+**You need an extension manager to enable it:**
 
 **Fedora:**
 ```bash
@@ -75,9 +85,7 @@ sudo apt install gnome-shell-extension-manager
 sudo pacman -S extension-manager
 ```
 
-After installing the extension manager, simply:
-1. Run CrossMacro (the extension will be automatically installed and enabled)
-2. Log out and log back in for changes to take effect
+**Note:** CrossMacro will automatically detect if the extension is missing or disabled and show a warning in the app.
 
 </details>
 
@@ -87,7 +95,7 @@ After installing the extension manager, simply:
 <summary><strong>Debian / Ubuntu (.deb)</strong></summary>
 
 ```bash
-# Example: crossmacro-0.1.0_amd64.deb
+# Download from GitHub Releases, then:
 sudo dpkg -i crossmacro-*_amd64.deb
 ```
 </details>
@@ -96,7 +104,7 @@ sudo dpkg -i crossmacro-*_amd64.deb
 <summary><strong>Fedora / RHEL (.rpm)</strong></summary>
 
 ```bash
-# Example: crossmacro-0.1.0-1.x86_64.rpm
+# Download from GitHub Releases, then:
 sudo rpm -i crossmacro-*.x86_64.rpm
 ```
 </details>
@@ -127,28 +135,20 @@ nix run github:alper-han/CrossMacro
 <summary><strong>AppImage</strong></summary>
 
 ```bash
-# Example: CrossMacro-0.1.0-x86_64.AppImage
-chmod +x CrossMacro-*.AppImage && ./CrossMacro-*.AppImage
+# Download from GitHub Releases, then run directly:
+./CrossMacro-*.AppImage
 ```
 </details>
 
 <details>
 <summary><strong>Manual Build</strong></summary>
 
+**Requirements:** .NET 10 SDK
+
 ```bash
 dotnet run --project src/CrossMacro.UI/
 ```
 </details>
-
-## 🚧 In Progress
-- [ ] Keyboard macro support
-
-## 📅 Planned
-- [ ] Virtual keyboard device creation
-- [ ] Windows support
-- [ ] Localization support
-- [ ] Theme support
-- [ ] Cross-platform support expansion
 
 
 
