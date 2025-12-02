@@ -77,6 +77,16 @@ public class MacroFileManager : IMacroFileManager
                     // Format: C,X,Y,Button (Used for Scroll)
                     await writer.WriteLineAsync($"C,{ev.X},{ev.Y},{ev.Button}");
                     break;
+                    
+                case EventType.KeyPress:
+                    // Format: KP,KeyCode
+                    await writer.WriteLineAsync($"KP,{ev.KeyCode}");
+                    break;
+                    
+                case EventType.KeyRelease:
+                    // Format: KR,KeyCode
+                    await writer.WriteLineAsync($"KR,{ev.KeyCode}");
+                    break;
             }
         }
     }
@@ -161,6 +171,25 @@ public class MacroFileManager : IMacroFileManager
                     ev.X = int.Parse(parts[1]);
                     ev.Y = int.Parse(parts[2]);
                     ev.Button = Enum.Parse<MouseButton>(parts[3]);
+                    validEvent = true;
+                }
+                // Handle Keyboard Events
+                else if ((type == "KP" || type == "KEYPRESS") && parts.Length >= 2)
+                {
+                    ev.Type = EventType.KeyPress;
+                    ev.KeyCode = int.Parse(parts[1]);
+                    ev.Button = MouseButton.None;
+                    ev.X = 0;
+                    ev.Y = 0;
+                    validEvent = true;
+                }
+                else if ((type == "KR" || type == "KEYRELEASE") && parts.Length >= 2)
+                {
+                    ev.Type = EventType.KeyRelease;
+                    ev.KeyCode = int.Parse(parts[1]);
+                    ev.Button = MouseButton.None;
+                    ev.X = 0;
+                    ev.Y = 0;
                     validEvent = true;
                 }
                 

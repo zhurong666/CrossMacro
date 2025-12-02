@@ -36,6 +36,9 @@ public class MacroPlayer : IMacroPlayer, IDisposable
     // Track pressed mouse buttons to release on stop/pause (thread-safe)
     private readonly ConcurrentDictionary<ushort, byte> _pressedButtons = new();
     
+    // Track pressed keyboard keys to release on stop/pause (thread-safe)
+    private readonly ConcurrentDictionary<int, byte> _pressedKeys = new();
+    
     // Playback error tracking
     private int _errorCount;
     
@@ -105,8 +108,9 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         _currentX = 0;
         _currentY = 0;
         
-        // Clear any tracked pressed buttons from previous sessions
+        // Clear any tracked pressed buttons/keys from previous sessions
         _pressedButtons.Clear();
+        _pressedKeys.Clear();
         
         // Reset error counter
         _errorCount = 0;
@@ -140,7 +144,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
 
             // Create virtual device
             _device = new UInputDevice(_cachedScreenWidth, _cachedScreenHeight);
-            _device.CreateVirtualMouse();
+            _device.CreateVirtualInputDevice();  // Mouse + Keyboard support
             Log.Information("[MacroPlayer] Virtual device created. All playback events will be sent to this single virtual device.");
             
             // Sleep a bit to ensure device is ready
@@ -207,8 +211,9 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         }
         finally
         {
-            // CRITICAL: Release all buttons before cleanup to prevent stuck buttons
+            // CRITICAL: Release all buttons and keys before cleanup to prevent stuck inputs
             ReleaseAllButtons();
+            ReleaseAllKeys();
             
             IsPlaying = false;
             _device?.Dispose();
@@ -230,6 +235,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         {
             _isPaused = true;
             ReleaseAllButtons();
+            ReleaseAllKeys();
             _pauseEvent.Reset();
             Log.Information("[MacroPlayer] Paused");
         }
@@ -431,6 +437,18 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                     _device.EmitClick(MapButton(ev.Button));
                 }
                 break;
+                
+            case EventType.KeyPress:
+                Log.Information("[MacroPlayer] KeyPress: KeyCode={KeyCode}", ev.KeyCode);
+                _device.EmitKey(ev.KeyCode, true);
+                _pressedKeys.TryAdd(ev.KeyCode, 0);
+                break;
+                
+            case EventType.KeyRelease:
+                Log.Information("[MacroPlayer] KeyRelease: KeyCode={KeyCode}", ev.KeyCode);
+                _device.EmitKey(ev.KeyCode, false);
+                _pressedKeys.TryRemove(ev.KeyCode, out _);
+                break;
         }
     }
     
@@ -496,6 +514,37 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         }
     }
     
+    /// <summary>
+    /// Release all currently pressed keyboard keys to prevent them from staying stuck
+    /// </summary>
+    private void ReleaseAllKeys()
+    {
+        if (_device == null)
+            return;
+        
+        if (_pressedKeys.IsEmpty)
+            return;
+            
+        Log.Information("[MacroPlayer] Releasing {Count} pressed keys", _pressedKeys.Count);
+        
+        // Create a copy to avoid modification during iteration
+        var keysToRelease = _pressedKeys.Keys.ToArray();
+        _pressedKeys.Clear();
+        
+        foreach (var keyCode in keysToRelease)
+        {
+            try
+            {
+                _device.EmitKey(keyCode, false);
+                Log.Debug("[MacroPlayer] Released key: {KeyCode}", keyCode);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[MacroPlayer] Failed to release key: {KeyCode}", keyCode);
+            }
+        }
+    }
+    
     public void Dispose()
     {
         if (_disposed)
@@ -505,6 +554,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         
         Stop();
         ReleaseAllButtons();
+        ReleaseAllKeys();
         
         _device?.Dispose();
         _cts?.Dispose();

@@ -92,20 +92,27 @@ public class MacroRecorder : IMacroRecorder, IDisposable
         
         try
         {
-            // Auto-detect all mouse devices
-            Log.Information("[MacroRecorder] Auto-detecting mouse devices...");
+            // Auto-detect all mouse and keyboard devices
+            Log.Information("[MacroRecorder] Auto-detecting input devices...");
             var devices = InputDeviceHelper.GetAvailableDevices();
             var mice = devices.Where(d => d.IsMouse).ToList();
+            var keyboards = devices.Where(d => d.IsKeyboard).ToList();
             
             if (mice.Count == 0)
             {
                 throw new InvalidOperationException("No mouse devices found");
             }
             
-            Log.Information("[MacroRecorder] Found {Count} PHYSICAL mouse device(s) (Virtual devices excluded):", mice.Count);
+            Log.Information("[MacroRecorder] Found {MiceCount} mouse device(s) and {KeyboardCount} keyboard device(s):", mice.Count, keyboards.Count);
+            
             foreach (var mouse in mice)
             {
-                Log.Information("  - {Name} ({Path})", mouse.Name, mouse.Path);
+                Log.Information("  [Mouse] {Name} ({Path})", mouse.Name, mouse.Path);
+            }
+            
+            foreach (var keyboard in keyboards)
+            {
+                Log.Information("  [Keyboard] {Name} ({Path})", keyboard.Name, keyboard.Path);
             }
             
             // Create a reader for each mouse
@@ -118,21 +125,40 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                     reader.ErrorOccurred += OnReaderError;
                     reader.Start();
                     _readers.Add(reader);
-                    Log.Information("[MacroRecorder] Started monitoring: {Name}", mouse.Name);
+                    Log.Information("[MacroRecorder] Started monitoring mouse: {Name}", mouse.Name);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, "[MacroRecorder] Failed to open {Name}", mouse.Name);
+                    Log.Error(ex, "[MacroRecorder] Failed to open mouse {Name}", mouse.Name);
+                    // Continue with other devices
+                }
+            }
+            
+            // Create a reader for each keyboard
+            foreach (var keyboard in keyboards)
+            {
+                try
+                {
+                    var reader = new EvdevReader(keyboard.Path, keyboard.Name);
+                    reader.EventReceived += OnNativeEventReceived;
+                    reader.ErrorOccurred += OnReaderError;
+                    reader.Start();
+                    _readers.Add(reader);
+                    Log.Information("[MacroRecorder] Started monitoring keyboard: {Name}", keyboard.Name);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[MacroRecorder] Failed to open keyboard {Name}", keyboard.Name);
                     // Continue with other devices
                 }
             }
             
             if (_readers.Count == 0)
             {
-                throw new InvalidOperationException("Failed to open any mouse devices");
+                throw new InvalidOperationException("Failed to open any input devices");
             }
             
-            Log.Information("[MacroRecorder] Successfully monitoring {Count} mouse device(s)", _readers.Count);
+            Log.Information("[MacroRecorder] Successfully monitoring {Count} input device(s)", _readers.Count);
 
             // Initialize cached position
             if (_positionProvider != null)
@@ -382,26 +408,51 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                 Timestamp = _stopwatch.ElapsedMilliseconds
             };
 
-            // Button press/release
-            if (ev.code == UInputNative.BTN_LEFT) macroEvent.Button = MouseButton.Left;
-            else if (ev.code == UInputNative.BTN_RIGHT) macroEvent.Button = MouseButton.Right;
-            else if (ev.code == UInputNative.BTN_MIDDLE) macroEvent.Button = MouseButton.Middle;
-            else return; // Ignore other keys
-
-            macroEvent.Type = ev.value == 1 ? EventType.ButtonPress : EventType.ButtonRelease;
-            
-            // For button events, we want to record the current absolute position if available
-            if (_positionProvider != null)
+            // Check if it's a mouse button or keyboard key
+            if (ev.code == UInputNative.BTN_LEFT || ev.code == UInputNative.BTN_RIGHT || ev.code == UInputNative.BTN_MIDDLE)
             {
-                // We use the cached position, which is updated by FlushPendingMove or on init
-                macroEvent.X = _cachedX;
-                macroEvent.Y = _cachedY;
+                // Mouse button
+                if (ev.code == UInputNative.BTN_LEFT) macroEvent.Button = MouseButton.Left;
+                else if (ev.code == UInputNative.BTN_RIGHT) macroEvent.Button = MouseButton.Right;
+                else if (ev.code == UInputNative.BTN_MIDDLE) macroEvent.Button = MouseButton.Middle;
+
+                macroEvent.Type = ev.value == 1 ? EventType.ButtonPress : EventType.ButtonRelease;
+                
+                // For button events, record the current absolute position if available
+                if (_positionProvider != null)
+                {
+                    macroEvent.X = _cachedX;
+                    macroEvent.Y = _cachedY;
+                }
+                else
+                {
+                    macroEvent.X = _accumulatedX;
+                    macroEvent.Y = _accumulatedY;
+                }
+            }
+            else if (ev.code >= 1 && ev.code <= 255)
+            {
+                // Keyboard key (KEY_ range is 1-255)
+                // Only record press (value=1) and release (value=0), ignore repeat (value=2)
+                if (ev.value == 0 || ev.value == 1)
+                {
+                    macroEvent.Type = ev.value == 1 ? EventType.KeyPress : EventType.KeyRelease;
+                    macroEvent.KeyCode = ev.code;
+                    macroEvent.Button = MouseButton.None;
+                    
+                    Log.Information("[MacroRecorder] Keyboard event: {Type} Key={Code}", 
+                        macroEvent.Type, macroEvent.KeyCode);
+                }
+                else
+                {
+                    // Ignore key repeat events (value=2)
+                    return;
+                }
             }
             else
             {
-                // If no provider, use the accumulated relative coordinates as the "position"
-                macroEvent.X = _accumulatedX;
-                macroEvent.Y = _accumulatedY;
+                // Unknown key code, ignore
+                return;
             }
             
             AddMacroEvent(macroEvent);

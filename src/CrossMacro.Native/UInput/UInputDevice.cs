@@ -19,9 +19,9 @@ namespace CrossMacro.Native.UInput
             _height = height;
         }
 
-        public void CreateVirtualMouse()
+        public void CreateVirtualInputDevice()
         {
-            Log.Information("[UInputDevice] Creating virtual mouse (Resolution: {Width}x{Height})...", _width, _height);
+            Log.Information("[UInputDevice] Creating virtual input device (Mouse + Keyboard, Resolution: {Width}x{Height})...", _width, _height);
             
             // Try opening /dev/uinput
             _fd = UInputNative.open("/dev/uinput", UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
@@ -67,13 +67,20 @@ namespace CrossMacro.Native.UInput
                     EnableBit(UInputNative.UI_SET_PROPBIT, UInputNative.INPUT_PROP_DIRECT);
                 }
 
+                // Enable keyboard keys (KEY_RESERVED = 0 to KEY_MAX ~ 255)
+                // We enable all common keyboard keys for maximum compatibility
+                for (int keyCode = 1; keyCode <= 255; keyCode++)
+                {
+                    EnableBit(UInputNative.UI_SET_KEYBIT, keyCode);
+                }
+
                 // INPUT_PROP_POINTER might conflict with INPUT_PROP_DIRECT
                 // Disabling to test if it causes drift in absolute positioning
                 // EnableBit(UInputNative.UI_SET_PROPBIT, UInputNative.INPUT_PROP_POINTER);
 
                 var uidev = new UInputNative.uinput_user_dev
                 {
-                    name = "Wayland Cross Macro Virtual Device",
+                    name = "CrossMacro Virtual Input Device",
                     id_bustype = UInputNative.BUS_USB,
                     id_vendor = 0x1234,
                     id_product = 0x5678,
@@ -110,7 +117,7 @@ namespace CrossMacro.Native.UInput
                     throw new InvalidOperationException($"Failed to create device (Errno: {errno})");
                 }
                 
-                Log.Information("[UInputDevice] Virtual mouse created successfully.");
+                Log.Information("[UInputDevice] Virtual input device (mouse + keyboard) created successfully.");
             }
             catch
             {
@@ -201,6 +208,17 @@ namespace CrossMacro.Native.UInput
         {
             EmitButton(buttonCode, true);
             EmitButton(buttonCode, false);
+        }
+        
+        /// <summary>
+        /// Emit a keyboard key press or release
+        /// </summary>
+        /// <param name="keyCode">Linux input key code (e.g., 30 for KEY_A)</param>
+        /// <param name="pressed">True for key press, false for release</param>
+        public void EmitKey(int keyCode, bool pressed)
+        {
+            SendEvent(UInputNative.EV_KEY, (ushort)keyCode, pressed ? 1 : 0);
+            SendEvent(UInputNative.EV_SYN, UInputNative.SYN_REPORT, 0);
         }
 
         public void Dispose()

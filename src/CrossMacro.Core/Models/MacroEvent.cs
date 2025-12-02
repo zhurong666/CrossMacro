@@ -36,6 +36,12 @@ public class MacroEvent
     /// Delay until next event (milliseconds)
     /// </summary>
     public int DelayMs { get; set; }
+    
+    /// <summary>
+    /// Keyboard key code (for key press/release events)
+    /// Uses Linux input key codes (e.g., 30 = KEY_A, 57 = KEY_SPACE)
+    /// </summary>
+    public int KeyCode { get; set; }
 }
 
 /// <summary>
@@ -61,7 +67,17 @@ public enum EventType
     /// <summary>
     /// Mouse click (press + release)
     /// </summary>
-    Click
+    Click,
+    
+    /// <summary>
+    /// Keyboard key pressed
+    /// </summary>
+    KeyPress,
+    
+    /// <summary>
+    /// Keyboard key released
+    /// </summary>
+    KeyRelease
 }
 
 /// <summary>
