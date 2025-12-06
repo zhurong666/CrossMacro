@@ -56,7 +56,7 @@
         # The main CrossMacro package
         crossmacro = pkgs.buildDotnetModule rec {
           pname = "crossmacro";
-          version = "0.3.2";
+          version = "0.4.0";
 
           src = ./.;
 
