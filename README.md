@@ -4,11 +4,11 @@ A modern mouse and keyboard macro recording and playback application for Linux W
 
 ## Screenshots
 
-| Recording | Playback |
-| :---: | :---: |
-| ![Recording](screenshots/recording-tab.png) | ![Playback](screenshots/playback-tab.png) |
-| **Files** | **Settings** |
-| ![Files](screenshots/files-tab.png) | ![Settings](screenshots/settings-tab.png) |
+| Recording | Playback | Files |
+| :---: | :---: | :---: |
+| ![Recording](screenshots/recording-tab.png) | ![Playback](screenshots/playback-tab.png) | ![Files](screenshots/files-tab.png) |
+| **Text Expansion** | **Settings** | |
+| ![Text Expansion](screenshots/text-expansion-tab.png) | ![Settings](screenshots/settings-tab.png) | |
 
 ## 🖥️ Supported Platforms
 
@@ -24,6 +24,7 @@ A modern mouse and keyboard macro recording and playback application for Linux W
 
 - **Mouse Event Recording**: Record mouse clicks and movements
 - **Keyboard Event Recording**: Record keyboard key presses
+- **Text Expansion**: Create text shortcuts for quick insertions (e.g. :mail -> email@example.com)
 - **Playback**: Replay recorded macros with pause/resume support
 - **Loop Mode**: Continuously repeat macros with customizable repeat count and delay
 - **Speed Control**: Adjust playback speed from 0.25x to 5.0x
