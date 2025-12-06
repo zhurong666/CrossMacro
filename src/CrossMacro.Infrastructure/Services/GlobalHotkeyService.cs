@@ -7,6 +7,9 @@ using CrossMacro.Core.Models;
 using CrossMacro.Core.Services;
 using CrossMacro.Native.Evdev;
 using CrossMacro.Native.UInput;
+using CrossMacro.Native.Xkb;
+using System.Diagnostics;
+using System.Text.Json;
 using Serilog;
 
 namespace CrossMacro.Infrastructure.Services;
@@ -20,6 +23,11 @@ public class GlobalHotkeyService : IGlobalHotkeyService
     private List<EvdevReader> _readers = new();
     private bool _isRunning;
     private readonly Lock _lock = new();
+
+    private readonly IKeyboardLayoutService _layoutService;
+
+
+
     
     // Hotkey mappings (action -> key codes + modifiers)
     private HotkeyMapping _recordingHotkey = new();
@@ -45,14 +53,17 @@ public class GlobalHotkeyService : IGlobalHotkeyService
 
     private readonly IHotkeyConfigurationService _configService;
 
-    public GlobalHotkeyService(IHotkeyConfigurationService configService)
+    public GlobalHotkeyService(IHotkeyConfigurationService configService, IKeyboardLayoutService layoutService)
     {
         _configService = configService;
+        _layoutService = layoutService;
         
         // Load saved hotkeys
         var settings = _configService.Load();
         UpdateHotkeys(settings.RecordingHotkey, settings.PlaybackHotkey, settings.PauseHotkey, save: false);
     }
+
+
 
     public void Start()
     {
@@ -271,7 +282,8 @@ public class GlobalHotkeyService : IGlobalHotkeyService
         // Modifiers
         if (_pressedModifiers.Contains(29) || _pressedModifiers.Contains(97)) parts.Add("Ctrl");
         if (_pressedModifiers.Contains(42) || _pressedModifiers.Contains(54)) parts.Add("Shift");
-        if (_pressedModifiers.Contains(56) || _pressedModifiers.Contains(100)) parts.Add("Alt");
+        if (_pressedModifiers.Contains(56)) parts.Add("Alt");
+        if (_pressedModifiers.Contains(100)) parts.Add("AltGr");
         if (_pressedModifiers.Contains(125) || _pressedModifiers.Contains(126)) parts.Add("Super");
 
         // Main Key
@@ -280,52 +292,9 @@ public class GlobalHotkeyService : IGlobalHotkeyService
         return string.Join("+", parts);
     }
 
-    private static string GetKeyName(int keyCode)
+    private string GetKeyName(int keyCode)
     {
-        // Reverse mapping
-        if (keyCode >= 59 && keyCode <= 82) return "F" + (keyCode - 59 + 1); // F1-F24
-        
-        // Digits
-        if (keyCode == 11) return "0";
-        if (keyCode >= 2 && keyCode <= 10) return (keyCode - 1).ToString();
-
-        // Letters
-        if (keyCode >= 16 && keyCode <= 25) return "QWERTYUIOP"[keyCode - 16].ToString();
-        if (keyCode >= 30 && keyCode <= 38) return "ASDFGHJKL"[keyCode - 30].ToString();
-        if (keyCode >= 44 && keyCode <= 50) return "ZXCVBNM"[keyCode - 44].ToString();
-
-        return keyCode switch
-        {
-            57 => "Space",
-            28 => "Enter",
-            15 => "Tab",
-            14 => "Backspace",
-            1 => "Escape",
-            111 => "Delete",
-            110 => "Insert",
-            102 => "Home",
-            107 => "End",
-            104 => "PageUp",
-            109 => "PageDown",
-            103 => "Up",
-            108 => "Down",
-            105 => "Left",
-            106 => "Right",
-            
-            51 => ",",
-            52 => ".",
-            12 => "-",
-            13 => "=",
-            39 => ";",
-            40 => "'",
-            26 => "[",
-            27 => "]",
-            43 => "\\",
-            53 => "/",
-            41 => "`",
-            
-            _ => $"Key{keyCode}"
-        };
+         return _layoutService.GetKeyName(keyCode);
     }
 
     private void CheckHotkeyMatch(int keyCode, string actionName, HotkeyMapping mapping, Action action)
@@ -384,7 +353,7 @@ public class GlobalHotkeyService : IGlobalHotkeyService
         Stop();
     }
 
-    private static HotkeyMapping ParseHotkey(string hotkeyString)
+    private HotkeyMapping ParseHotkey(string hotkeyString)
     {
         var mapping = new HotkeyMapping();
         var parts = hotkeyString.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -411,7 +380,7 @@ public class GlobalHotkeyService : IGlobalHotkeyService
         return mapping;
     }
 
-    private static int GetKeyCode(string keyName)
+    private int GetKeyCode(string keyName)
     {
         // Modifier keys
         if (keyName.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
@@ -420,6 +389,8 @@ public class GlobalHotkeyService : IGlobalHotkeyService
             return 42; // KEY_LEFTSHIFT
         if (keyName.Equals("Alt", StringComparison.OrdinalIgnoreCase))
             return 56; // KEY_LEFTALT
+        if (keyName.Equals("AltGr", StringComparison.OrdinalIgnoreCase))
+            return 100; // KEY_RIGHTALT
         if (keyName.Equals("Super", StringComparison.OrdinalIgnoreCase) || keyName.Equals("Meta", StringComparison.OrdinalIgnoreCase))
             return 125; // KEY_LEFTMETA
 
@@ -430,6 +401,46 @@ public class GlobalHotkeyService : IGlobalHotkeyService
                 return 59 + fNum - 1; // F1 = 59, F2 = 60, etc.
         }
 
+        // Special keys overrides
+        var special = keyName switch
+        {
+            "Space" => 57,
+            "Enter" => 28,
+            "Tab" => 15,
+            "Backspace" => 14,
+            "Escape" or "Esc" => 1,
+            "Delete" or "Del" => 111,
+            "Insert" or "Ins" => 110,
+            "Home" => 102,
+            "End" => 107,
+            "PageUp" or "PgUp" => 104,
+            "PageDown" or "PgDn" => 109,
+            "Up" => 103,
+            "Down" => 108,
+            "Left" => 105,
+            "Right" => 106,
+            _ => -1
+        };
+        if (special != -1) return special;
+
+        // Try to reverse match using GetKeyName (which now uses IKeyboardLayoutService)
+        // This handles "Ö", "Ş", etc.
+        for (int i = 0; i < 256; i++)
+        {
+            var name = GetKeyName(i);
+            if (string.Equals(name, keyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        // Delegate to layout service for hard parsing if needed, but the loop above calling GetKeyName -> _layoutService.GetKeyName covers most dynamic cases.
+        // We can check if _layoutService can provide reverse mapping directly to be faster?
+        // _layoutService.GetKeyCode(keyName) exists.
+        var code = _layoutService.GetKeyCode(keyName);
+        if (code != -1) return code;
+
+        // Fallback for hardcoded Latin layout if XKB fails
         // Letter keys (QWERTY layout mapping)
         if (keyName.Length == 1 && char.IsLetter(keyName[0]))
         {
@@ -449,25 +460,9 @@ public class GlobalHotkeyService : IGlobalHotkeyService
             return digit == 0 ? 11 : 2 + digit - 1; // 1 = 2, 2 = 3, ..., 0 = 11
         }
 
-        // Special keys
+        // Special keys characters
         return keyName switch
         {
-            "Space" => 57,
-            "Enter" => 28,
-            "Tab" => 15,
-            "Backspace" => 14,
-            "Escape" or "Esc" => 1,
-            "Delete" or "Del" => 111,
-            "Insert" or "Ins" => 110,
-            "Home" => 102,
-            "End" => 107,
-            "PageUp" or "PgUp" => 104,
-            "PageDown" or "PgDn" => 109,
-            "Up" => 103,
-            "Down" => 108,
-            "Left" => 105,
-            "Right" => 106,
-            
             "," => 51,
             "." => 52,
             "-" => 12,

@@ -42,6 +42,7 @@ public partial class App : Application
         });
         
         services.AddSingleton<IGlobalHotkeyService, GlobalHotkeyService>();
+        services.AddSingleton<IKeyboardLayoutService, KeyboardLayoutService>();
         services.AddSingleton<IMacroFileManager, MacroFileManager>();
         
         // Register Native services

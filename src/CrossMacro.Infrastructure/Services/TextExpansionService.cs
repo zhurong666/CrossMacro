@@ -18,6 +18,7 @@ namespace CrossMacro.Infrastructure.Services;
 /// </summary>
 public class TextExpansionService : ITextExpansionService
 {
+    private readonly IKeyboardLayoutService _layoutService;
     private readonly ISettingsService _settingsService;
     private readonly IClipboardService _clipboardService;
     private readonly TextExpansionStorageService _storageService;
@@ -36,14 +37,20 @@ public class TextExpansionService : ITextExpansionService
     // Modifier state
     private bool _isShiftPressed;
     private bool _isAltGrPressed;
+    private bool _isCapsLockOn;
 
     public bool IsRunning => _isRunning;
 
-    public TextExpansionService(ISettingsService settingsService, IClipboardService clipboardService, TextExpansionStorageService storageService)
+    public TextExpansionService(
+        ISettingsService settingsService, 
+        IClipboardService clipboardService, 
+        TextExpansionStorageService storageService,
+        IKeyboardLayoutService layoutService)
     {
         _settingsService = settingsService;
         _clipboardService = clipboardService;
         _storageService = storageService;
+        _layoutService = layoutService;
         _buffer = new StringBuilder();
         _lock = new object();
         _outputLock = new SemaphoreSlim(1, 1);
@@ -52,6 +59,7 @@ public class TextExpansionService : ITextExpansionService
 
     public void Start()
     {
+        // ... (Start implementation remains same) ...
         // Only start if enabled in settings
         if (!_settingsService.Current.EnableTextExpansion)
         {
@@ -94,10 +102,6 @@ public class TextExpansionService : ITextExpansionService
                 if (_readers.Count > 0)
                 {
                     _isRunning = true;
-                    // Initialize output device lazily when needed or now? 
-                    // Better to init now to fail fast if permissions are bad, 
-                    // but let's do lazy or concurrent to not block startup too much.
-                    // Actually, let's just create it on demand or keep it simple.
                 }
             }
             catch (Exception ex)
@@ -106,6 +110,8 @@ public class TextExpansionService : ITextExpansionService
             }
         }
     }
+
+    // ... Stop/Dispose ...
 
     public void Stop()
     {
@@ -120,12 +126,6 @@ public class TextExpansionService : ITextExpansionService
             }
             _readers.Clear();
             
-            // Dispose output device if exists
-            // We can't await here easily in a void method, but we should try to acquire the lock
-            // or just dispose and let the lock handle potential errors? 
-            // Better to fire and forget the disposal wrapped in async if needed, or just block lightly.
-            // Since Stop might be called from UI, blocking on SemaphoreSlim.Wait might be risky if held long.
-            // But _outputLock is only held during expansion which is fast.
             try 
             {
                 _outputLock.Wait();
@@ -172,6 +172,12 @@ public class TextExpansionService : ITextExpansionService
                 _isAltGrPressed = ev.value == 1 || ev.value == 2;
                 return;
             }
+            // Update CapsLock state (Toggle on Press)
+            if (ev.code == 58 && ev.value == 1) // Caps Lock Press
+            {
+                _isCapsLockOn = !_isCapsLockOn;
+                return;
+            }
 
             // Only process key PRESS (value == 1)
             // Ignore Repeat (2) and Release (0)
@@ -188,8 +194,8 @@ public class TextExpansionService : ITextExpansionService
             _lastKey = ev.code;
             _lastPressTime = now;
 
-            // Map key to char with AltGr
-            var charValue = KeyMapHelper.MapKeyCodeToChar(ev.code, _isShiftPressed, _isAltGrPressed);
+            // Map key to char using IKeyboardLayoutService (XKB aware)
+            var charValue = _layoutService.GetCharFromKeyCode(ev.code, _isShiftPressed, _isAltGrPressed, _isCapsLockOn);
 
             // Manage buffer
             if (charValue.HasValue)
@@ -206,8 +212,16 @@ public class TextExpansionService : ITextExpansionService
             {
                  // Reset usage on Enter logic can stay
                  if (ev.code == 28) _buffer.Clear();
-                 // Space (57) is already mapped to ' ', so let it fall through or be handled by map?
-                 // KeyMapHelper has Space -> ' '. So it goes to code block above.
+                 // Space (57) special handling
+                 if (ev.code == 57)
+                 {
+                    var spaceChar = _layoutService.GetCharFromKeyCode(57, false, false, false);
+                    if (spaceChar.HasValue) 
+                    {
+                        AppendToBuffer(spaceChar.Value);
+                        CheckForExpansion();
+                    }
+                 }
             }
         }
     }
@@ -261,6 +275,16 @@ public class TextExpansionService : ITextExpansionService
                     _outputDevice = new UInputDevice();
                     _outputDevice.CreateVirtualInputDevice();
                     await Task.Delay(200);
+                }
+
+                // 0. Wait for Modifiers (AltGr AND Shift) to be released
+                // If user is holding AltGr (e.g. for '}') or Shift (e.g. for '!'), Ctrl+V might fail or behave differently (e.g. Shift+Ctrl+V is terminal paste).
+                int timeoutMs = 2000;
+                int elapsed = 0;
+                while ((_isAltGrPressed || _isShiftPressed) && elapsed < timeoutMs)
+                {
+                    await Task.Delay(50);
+                    elapsed += 50;
                 }
 
                 // 1. Backspace the trigger
