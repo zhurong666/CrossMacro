@@ -15,6 +15,7 @@
                     <TextBlock Grid.Column="0" Classes="label" Text="Playback Speed"/>
                     <TextBlock Grid.Column="1" Text="{Binding PlaybackSpeed, StringFormat='{}{0:0.0}x'}" 
                               FontWeight="Medium"
+                              FontSize="16"
                               Foreground="{DynamicResource SystemAccentColor}"/>
                 </Grid>
                 <Slider Minimum="0.1" Maximum="10.0" Value="{Binding PlaybackSpeed}"
@@ -43,6 +44,7 @@
                     <TextBlock Grid.Column="0" Classes="label" Text="Countdown (sec)"/>
                     <TextBlock Grid.Column="1" Text="{Binding CountdownSeconds}" 
                               FontWeight="Medium"
+                              FontSize="16"
                               Foreground="{DynamicResource SystemAccentColor}"/>
                 </Grid>
                 <NumericUpDown Minimum="0" Maximum="2147483647" Value="{Binding CountdownSeconds}"

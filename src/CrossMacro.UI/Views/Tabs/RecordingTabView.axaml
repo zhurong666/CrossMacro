@@ -42,6 +42,7 @@
                        VerticalAlignment="Stretch">
                     <TextBlock Text="{Binding EventCount}" 
                               FontWeight="Medium"
+                              FontSize="18"
                               Foreground="{DynamicResource SystemAccentColor}"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"/>
@@ -58,6 +59,7 @@
                               Foreground="{DynamicResource SystemAccentColor}"
                               HorizontalAlignment="Center"
                               FontWeight="Bold"
+                              FontSize="18"
                               VerticalAlignment="Center"/>
                 </Border>
             </Grid>
