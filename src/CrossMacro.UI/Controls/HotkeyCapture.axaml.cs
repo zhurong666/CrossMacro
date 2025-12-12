@@ -23,7 +23,19 @@ public partial class HotkeyCapture : UserControl
             nameof(IsCapturing),
             o => o.IsCapturing);
 
+    public static readonly DirectProperty<HotkeyCapture, bool> IsValidProperty =
+        AvaloniaProperty.RegisterDirect<HotkeyCapture, bool>(
+            nameof(IsValid),
+            o => o.IsValid);
+
+    public static readonly DirectProperty<HotkeyCapture, string> ErrorMessageProperty =
+        AvaloniaProperty.RegisterDirect<HotkeyCapture, string>(
+            nameof(ErrorMessage),
+            o => o.ErrorMessage);
+
     private bool _isCapturing;
+    private bool _isValid = true;
+    private string _errorMessage = string.Empty;
 
     public string Hotkey
     {
@@ -37,7 +49,21 @@ public partial class HotkeyCapture : UserControl
         private set => SetAndRaise(IsCapturingProperty, ref _isCapturing, value);
     }
 
+    public bool IsValid
+    {
+        get => _isValid;
+        private set => SetAndRaise(IsValidProperty, ref _isValid, value);
+    }
+
+    public string ErrorMessage
+    {
+        get => _errorMessage;
+        private set => SetAndRaise(ErrorMessageProperty, ref _errorMessage, value);
+    }
+
     public event EventHandler<string>? HotkeyChanged;
+
+    public Func<string, (bool isValid, string errorMessage)>? ValidationFunc { get; set; }
 
     public static readonly DirectProperty<HotkeyCapture, string> DisplayStringProperty =
         AvaloniaProperty.RegisterDirect<HotkeyCapture, string>(
@@ -159,6 +185,43 @@ public partial class HotkeyCapture : UserControl
             // Update on UI thread
             Dispatcher.UIThread.Post(() =>
             {
+                // Validate the new hotkey if validation function is provided
+                if (ValidationFunc != null)
+                {
+                    var (isValid, errorMessage) = ValidationFunc(newHotkey);
+                    
+                    if (!isValid)
+                    {
+                        // Show error state briefly
+                        IsValid = false;
+                        ErrorMessage = errorMessage;
+                        ApplyErrorEffect();
+                        
+                        // Remove error effect after a short delay
+                        Task.Delay(2000).ContinueWith(_ =>
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                IsValid = true;
+                                ErrorMessage = string.Empty;
+                                RemoveErrorEffect();
+                                
+                                if (!IsPointerOver)
+                                {
+                                    RemoveHoverEffect();
+                                }
+                            });
+                        });
+                        
+                        IsCapturing = false;
+                        UpdateDisplayString();
+                        return;
+                    }
+                }
+                
+                // Valid hotkey - update
+                IsValid = true;
+                ErrorMessage = string.Empty;
                 Hotkey = newHotkey;
                 HotkeyChanged?.Invoke(this, newHotkey);
                 IsCapturing = false;
@@ -186,6 +249,28 @@ public partial class HotkeyCapture : UserControl
                 
                 Console.WriteLine($"Capture failed: {ex}");
             });
+        }
+    }
+    
+    private void ApplyErrorEffect()
+    {
+        var border = this.FindControl<Border>("HotkeyBorder");
+        
+        if (border != null)
+        {
+            border.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#EF4444"));
+            border.BorderThickness = new Thickness(2);
+        }
+    }
+    
+    private void RemoveErrorEffect()
+    {
+        var border = this.FindControl<Border>("HotkeyBorder");
+        
+        if (border != null)
+        {
+            border.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("Transparent"));
+            border.BorderThickness = new Thickness(1);
         }
     }
 }

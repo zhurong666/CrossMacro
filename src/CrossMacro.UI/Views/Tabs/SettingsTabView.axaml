@@ -8,71 +8,106 @@
              x:Class="CrossMacro.UI.Views.Tabs.SettingsTabView"
              x:DataType="vm:SettingsViewModel">
 
-    <ScrollViewer Padding="10">
-        <StackPanel Spacing="20">
+    <Grid>
+        <ScrollViewer Padding="10">
+            <StackPanel Spacing="20">
 
-            <!-- Hotkey Info -->
-            <Border Background="#1E293B" CornerRadius="8" Padding="12">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Global Hotkeys" FontWeight="Bold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-                    
-                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,4,0,0">
-                        <controls:HotkeyCapture Grid.Row="0" Grid.Column="0" 
-                                               Hotkey="{Binding RecordingHotkey, Mode=TwoWay}" 
-                                               Margin="0,0,12,8"
-                                               MinWidth="140"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Toggle Recording (Start/Stop)" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                <!-- Hotkey Info -->
+                <Border Background="#1E293B" CornerRadius="8" Padding="12">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Global Hotkeys" FontWeight="Bold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
                         
-                        <controls:HotkeyCapture Grid.Row="1" Grid.Column="0" 
-                                               Hotkey="{Binding PlaybackHotkey, Mode=TwoWay}" 
-                                               Margin="0,0,12,8"
-                                               MinWidth="140"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Toggle Playback (Start/Stop)" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,4,0,0">
+                            <controls:HotkeyCapture Grid.Row="0" Grid.Column="0" 
+                                                   x:Name="RecordingHotkeyCapture"
+                                                   Hotkey="{Binding RecordingHotkey, Mode=TwoWay}" 
+                                                   Margin="0,0,12,8"
+                                                   MinWidth="140"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Toggle Recording (Start/Stop)" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            
+                            <controls:HotkeyCapture Grid.Row="1" Grid.Column="0" 
+                                                   x:Name="PlaybackHotkeyCapture"
+                                                   Hotkey="{Binding PlaybackHotkey, Mode=TwoWay}" 
+                                                   Margin="0,0,12,8"
+                                                   MinWidth="140"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Toggle Playback (Start/Stop)" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            
+                            <controls:HotkeyCapture Grid.Row="2" Grid.Column="0" 
+                                                   x:Name="PauseHotkeyCapture"
+                                                   Hotkey="{Binding PauseHotkey, Mode=TwoWay}" 
+                                                   Margin="0,0,12,0"
+                                                   MinWidth="140"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Pause/Resume Playback" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Tray Icon Settings -->
+                <Border Background="#1E293B" CornerRadius="8" Padding="12">
+                    <StackPanel Spacing="16">
+                        <!-- Tray Icon -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" 
+                                      Text="Enable Tray Icon" 
+                                      FontWeight="Medium" 
+                                      Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                      VerticalAlignment="Center"/>
+                                      
+                            <ToggleSwitch Grid.Column="1" 
+                                         IsChecked="{Binding EnableTrayIcon}"
+                                         OnContent="" 
+                                         OffContent=""
+                                         VerticalAlignment="Center"/>
+                        </Grid>
                         
-                        <controls:HotkeyCapture Grid.Row="2" Grid.Column="0" 
-                                               Hotkey="{Binding PauseHotkey, Mode=TwoWay}" 
-                                               Margin="0,0,12,0"
-                                               MinWidth="140"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Pause/Resume Playback" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
+                        <!-- Text Expansion -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" 
+                                      Text="Enable Text Expansion" 
+                                      FontWeight="Medium" 
+                                      Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                      VerticalAlignment="Center"/>
+                                      
+                            <ToggleSwitch Grid.Column="1" 
+                                         IsChecked="{Binding EnableTextExpansion}"
+                                         OnContent="" 
+                                         OffContent=""
+                                         VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- Toast Notification -->
+        <Border x:Name="ToastNotification"
+                Background="#DC2626"
+                CornerRadius="8"
+                Padding="16,12"
+                Margin="16"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                IsVisible="False"
+                BoxShadow="0 4 12 2 #40000000">
+            <Border.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+                </Transitions>
+            </Border.Transitions>
             
-            <!-- Tray Icon Settings -->
-            <Border Background="#1E293B" CornerRadius="8" Padding="12">
-                <StackPanel Spacing="16">
-                    <!-- Tray Icon -->
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" 
-                                  Text="Enable Tray Icon" 
-                                  FontWeight="Medium" 
-                                  Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                                  VerticalAlignment="Center"/>
-                                  
-                        <ToggleSwitch Grid.Column="1" 
-                                     IsChecked="{Binding EnableTrayIcon}"
-                                     OnContent="" 
-                                     OffContent=""
-                                     VerticalAlignment="Center"/>
-                    </Grid>
-                    
-                    <!-- Text Expansion -->
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" 
-                                  Text="Enable Text Expansion" 
-                                  FontWeight="Medium" 
-                                  Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                                  VerticalAlignment="Center"/>
-                                  
-                        <ToggleSwitch Grid.Column="1" 
-                                     IsChecked="{Binding EnableTextExpansion}"
-                                     OnContent="" 
-                                     OffContent=""
-                                     VerticalAlignment="Center"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
-        </StackPanel>
-    </ScrollViewer>
+            <StackPanel Spacing="4" MaxWidth="300">
+                <TextBlock x:Name="ToastTitle"
+                           Text="Hotkey Already Assigned"
+                           FontWeight="Bold"
+                           FontSize="13"
+                           Foreground="White"/>
+                <TextBlock x:Name="ToastMessage"
+                           Text=""
+                           FontSize="12"
+                           Foreground="#FEE2E2"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 
 </UserControl>
