@@ -1,6 +1,6 @@
 # CrossMacro
 
-A modern mouse and keyboard macro recording and playback application for Linux Wayland and X11.
+A modern mouse and keyboard macro recording and playback application for Linux (Wayland and X11) and Windows.
 
 ## Screenshots
 
@@ -12,11 +12,17 @@ A modern mouse and keyboard macro recording and playback application for Linux W
 
 ## 🖥️ Supported Platforms
 
-- **Linux** (Wayland & X11)
-  - Hyprland ✓
-  - KDE Plasma ✓
-  - GNOME ✓
-  - X11 ✓
+### Full Support (Absolute Positioning)
+- **Linux**
+  - Hyprland (Wayland) ✓
+  - KDE Plasma (Wayland & X11) ✓
+  - GNOME (Wayland & X11) ✓
+  - X11 (All other desktop environments) ✓
+- **Windows** ✓
+
+### Partial Support (Relative Positioning)
+- **Linux**
+  - Other Wayland compositors (fallback mode)
 
 
 
@@ -27,7 +33,7 @@ A modern mouse and keyboard macro recording and playback application for Linux W
 - **Text Expansion**: Create text shortcuts for quick insertions (e.g. :mail -> email@example.com)
 - **Playback**: Replay recorded macros with pause/resume support
 - **Loop Mode**: Continuously repeat macros with customizable repeat count and delay
-- **Speed Control**: Adjust playback speed from 0.25x to 5.0x
+- **Speed Control**: Adjust playback speed from 0.1x to 10.0x
 - **File Operations**: Save/load macros in .macro format (you choose where to save)
 - **Global Hotkeys**: Customizable global hotkey support
   - **F8**: Start/Stop recording
@@ -86,6 +92,8 @@ sudo apt install gnome-shell-extension-manager
 sudo pacman -S extension-manager
 ```
 
+![GNOME Warning](screenshots/gnome-warning.png)
+
 **Note:** CrossMacro will automatically detect if the extension is missing or disabled and show a warning in the app.
 
 </details>
@@ -127,9 +135,29 @@ paru -S crossmacro
 <details>
 <summary><strong>NixOS</strong></summary>
 
+**Run directly:**
 ```bash
 nix run github:alper-han/CrossMacro
 ```
+
+**Add to your configuration:**
+
+Add this to your `flake.nix` inputs:
+```nix
+inputs.crossmacro.url = "github:alper-han/CrossMacro";
+```
+
+Then in your NixOS configuration:
+```nix
+{ inputs, ... }: {
+  imports = [ inputs.crossmacro.nixosModules.default ];
+  
+  programs.crossmacro.enable = true;
+}
+```
+
+> **Note:** Automatically configures permissions and udev rules. No manual setup needed!
+
 </details>
 
 <details>
@@ -139,6 +167,15 @@ nix run github:alper-han/CrossMacro
 # Download from GitHub Releases, then run directly:
 ./CrossMacro-*.AppImage
 ```
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+Download the `.exe` file from [GitHub Releases](https://github.com/alper-han/CrossMacro/releases) and run it directly.
+
+> **Note:** No installation required. The executable is self-contained and doesn't require .NET to be installed.
+
 </details>
 
 <details>
