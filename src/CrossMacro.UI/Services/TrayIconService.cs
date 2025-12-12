@@ -18,6 +18,10 @@ public class TrayIconService : ITrayIconService
     private Window? _mainWindow;
     private bool _isExiting;
     private bool _isEnabled = true;
+    
+    private NativeMenuItem? _startRecordingItem;
+    private NativeMenuItem? _startPlaybackItem;
+    private NativeMenuItem? _stopItem;
 
     public TrayIconService(MainWindowViewModel viewModel)
     {
@@ -53,17 +57,18 @@ public class TrayIconService : ITrayIconService
             
             menu.Add(new NativeMenuItemSeparator());
             
-            var startRecordingItem = new NativeMenuItem { Header = "Start Recording (F8)" };
-            startRecordingItem.Click += OnStartRecordingClicked;
-            menu.Add(startRecordingItem);
+            // Use actual hotkey values from settings
+            _startRecordingItem = new NativeMenuItem { Header = $"Start Recording ({_viewModel.Settings.RecordingHotkey})" };
+            _startRecordingItem.Click += OnStartRecordingClicked;
+            menu.Add(_startRecordingItem);
             
-            var startPlaybackItem = new NativeMenuItem { Header = "Start Playback (F9)" };
-            startPlaybackItem.Click += OnStartPlaybackClicked;
-            menu.Add(startPlaybackItem);
+            _startPlaybackItem = new NativeMenuItem { Header = $"Start Playback ({_viewModel.Settings.PlaybackHotkey})" };
+            _startPlaybackItem.Click += OnStartPlaybackClicked;
+            menu.Add(_startPlaybackItem);
             
-            var stopItem = new NativeMenuItem { Header = "Stop (F10)" };
-            stopItem.Click += OnStopClicked;
-            menu.Add(stopItem);
+            _stopItem = new NativeMenuItem { Header = $"Stop ({_viewModel.Settings.PauseHotkey})" };
+            _stopItem.Click += OnStopClicked;
+            menu.Add(_stopItem);
             
             menu.Add(new NativeMenuItemSeparator());
             
@@ -75,11 +80,33 @@ public class TrayIconService : ITrayIconService
             
             _trayIcon.Clicked += OnTrayIconClicked;
             
+            // Subscribe to hotkey changes
+            _viewModel.Settings.PropertyChanged += OnSettingsPropertyChanged;
+            
             Log.Information("Tray icon initialized successfully");
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to initialize tray icon");
+        }
+    }
+    
+    private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(_viewModel.Settings.RecordingHotkey):
+                if (_startRecordingItem != null)
+                    _startRecordingItem.Header = $"Start Recording ({_viewModel.Settings.RecordingHotkey})";
+                break;
+            case nameof(_viewModel.Settings.PlaybackHotkey):
+                if (_startPlaybackItem != null)
+                    _startPlaybackItem.Header = $"Start Playback ({_viewModel.Settings.PlaybackHotkey})";
+                break;
+            case nameof(_viewModel.Settings.PauseHotkey):
+                if (_stopItem != null)
+                    _stopItem.Header = $"Stop ({_viewModel.Settings.PauseHotkey})";
+                break;
         }
     }
 
@@ -231,6 +258,8 @@ public class TrayIconService : ITrayIconService
         {
             _mainWindow.Closing -= OnWindowClosing;
         }
+        
+        _viewModel.Settings.PropertyChanged -= OnSettingsPropertyChanged;
         
         _trayIcon?.Dispose();
         Log.Debug("Tray icon service disposed");
