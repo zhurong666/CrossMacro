@@ -92,7 +92,7 @@ sudo apt install gnome-shell-extension-manager
 sudo pacman -S extension-manager
 ```
 
-![GNOME Warning](screenshots/gnome-warning.png)
+
 
 **Note:** CrossMacro will automatically detect if the extension is missing or disabled and show a warning in the app.
 
