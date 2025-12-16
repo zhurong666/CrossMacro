@@ -9,25 +9,26 @@ body:
         Thanks for taking the time to fill out this bug report!
   
   - type: dropdown
-    id: compositor
+    id: platform
     attributes:
-      label: Wayland Compositor
-      description: Which compositor are you using?
+      label: Platform
+      description: Which platform are you using?
       options:
-        - Hyprland
-        - KDE Plasma
-        - GNOME
-        - Sway
-        - Other (please specify)
+        - Linux (X11)
+        - Hyprland (Wayland)
+        - KDE Plasma (Wayland)
+        - GNOME (Wayland)
+        - Other Wayland
+        - Windows
     validations:
       required: true
 
   - type: input
-    id: distro
+    id: os_version
     attributes:
-      label: Linux Distribution
-      description: e.g., Arch Linux, Fedora 40, Ubuntu 24.04
-      placeholder: Arch Linux
+      label: OS Version
+      description: e.g., Arch Linux, Ubuntu 24.04, Fedora 40, NixOS, Windows 11
+      placeholder: Arch Linux / NixOS / Windows 11
     validations:
       required: true
 
@@ -59,3 +60,4 @@ body:
       label: Logs
       description: Please copy and paste any relevant logs.
       render: shell
+

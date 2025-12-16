@@ -9,7 +9,7 @@ The following is a set of guidelines for contributing to CrossMacro. These are m
 This section guides you through submitting a bug report for CrossMacro.
 
 - **Use the Bug Report template**: When you open a new issue, select "Bug Report".
-- **Provide specific details**: Include your Wayland compositor (Hyprland, KDE, GNOME), distribution, and steps to reproduce.
+- **Provide specific details**: Include your platform (Windows, Linux X11, or Wayland compositor), OS version, and steps to reproduce.
 - **Include logs**: If possible, run the application from the terminal and include the output.
 
 ## 💡 Suggesting Enhancements
@@ -21,8 +21,8 @@ This section guides you through submitting a bug report for CrossMacro.
 
 1. **Prerequisites**:
    - .NET 10 SDK
-   - Linux environment with a Wayland compositor
-   - `libevdev` and `uinput` permissions
+   - **Linux**: `libevdev` and `uinput` permissions (see README for setup)
+   - **Windows**: No additional requirements
 
 2. **Build the project**:
    ```bash
@@ -37,10 +37,10 @@ This section guides you through submitting a bug report for CrossMacro.
 ## 📥 Pull Requests
 
 1. Fork the repo and create your branch from `main`.
-2. If you've added code that should be tested, add tests.
-3. Ensure the test suite passes.
-4. Make sure your code follows the existing coding style.
-5. Open a Pull Request!
+2. Make sure your code follows the existing coding style.
+3. Test your changes manually before submitting.
+4. Open a Pull Request!
 
 ### PR Checks
-We have a GitHub Action that automatically builds and tests your PR. Make sure this check passes.
+We have a GitHub Action that automatically builds your PR. Make sure this check passes.
+
