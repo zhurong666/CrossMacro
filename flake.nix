@@ -1,5 +1,5 @@
 {
-  description = "CrossMacro - Cross-platform Mouse Macro Recorder and Player";
+  description = "CrossMacro - Cross-platform Mouse and Keyboard Macro Recorder and Player";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -16,6 +16,8 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+
+        crossmacroVersion = "0.5.2";
 
         # Runtime libraries required by Avalonia/SkiaSharp on Linux
         # These are critical for FHS environment to work correctly
@@ -34,12 +36,10 @@
           xorg.libXext
           xorg.libXrandr
           xorg.libXrender
-          xorg.libXinerama
           xorg.libXfixes
 
-          # GTK/GNOME dependencies
+          # GLib for GIO
           glib
-          gtk3
 
           # Graphics/OpenGL
           libglvnd
@@ -59,17 +59,63 @@
           stdenv.cc.cc.lib # libstdc++
         ];
 
+        # The daemon package (Native AOT)
+        crossmacro-daemon = pkgs.buildDotnetModule rec {
+          pname = "crossmacro-daemon";
+          version = crossmacroVersion;
+
+          src = ./.;
+
+          projectFile = "src/CrossMacro.Daemon/CrossMacro.Daemon.csproj";
+
+          # Daemon dependencies are a subset of UI deps, so we can share deps.json
+          nugetDeps = ./deps.json;
+
+          dotnet-sdk = pkgs.dotnet-sdk_10;
+          # Native AOT is self-contained, no runtime needed
+          dotnet-runtime = null;
+
+          executables = [ "CrossMacro.Daemon" ];
+
+          buildType = "Release";
+
+          # Enable self-contained build for Native AOT
+          selfContainedBuild = true;
+
+          # Native AOT requires clang and zlib for compilation
+          nativeBuildInputs = with pkgs; [
+            clang
+            zlib
+          ];
+
+          dotnetFlags = [
+            "-p:Version=${version}"
+          ];
+
+          # Install polkit policy file
+          postInstall = ''
+            install -Dm644 scripts/assets/org.crossmacro.policy $out/share/polkit-1/actions/org.crossmacro.policy
+          '';
+
+          meta = with pkgs.lib; {
+            description = "Privileged Daemon for CrossMacro";
+            platforms = platforms.linux;
+            mainProgram = "CrossMacro.Daemon";
+            maintainers = with maintainers; [ ];
+          };
+        };
+
         # The main CrossMacro package
         crossmacro = pkgs.buildDotnetModule rec {
           pname = "crossmacro";
-          version = "0.5.2";
+          version = crossmacroVersion;
 
           src = ./.;
 
           projectFile = "src/CrossMacro.UI/CrossMacro.UI.csproj";
 
           # NuGet dependencies lock file
-          nugetDeps = ./deps.nix;
+          nugetDeps = ./deps.json;
 
           # .NET 10 Preview support
           dotnet-sdk = pkgs.dotnet-sdk_10;
@@ -81,26 +127,27 @@
 
           # Disable self-contained to use system runtime
           dotnetFlags = [
-            "-p:PublishSingleFile=false"
             "-p:SelfContained=false"
             "-p:Version=${version}"
           ];
 
-          # Ensure libraries are found during build/test if needed
-          makeWrapperArgs = [
-            "--prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibs}"
-          ];
+          # Runtime dependencies for Avalonia/SkiaSharp
+          runtimeDeps = runtimeLibs;
 
           postInstall = ''
             install -Dm644 scripts/assets/CrossMacro.desktop $out/share/applications/crossmacro.desktop
-            install -Dm644 src/CrossMacro.UI/Assets/mouse-icon.png $out/share/icons/hicolor/512x512/apps/crossmacro.png
+            
+            for size in 16 32 48 64 128 256 512; do
+              mkdir -p $out/share/icons/hicolor/''${size}x''${size}/apps
+              install -Dm644 src/CrossMacro.UI/Assets/icons/''${size}x''${size}/apps/crossmacro.png $out/share/icons/hicolor/''${size}x''${size}/apps/crossmacro.png
+            done
             install -Dm644 scripts/assets/com.github.alper-han.CrossMacro.appdata.xml $out/share/metainfo/com.github.alper-han.CrossMacro.appdata.xml
           '';
 
           meta = with pkgs.lib; {
-            description = "Mouse macro recorder and player supporting Hyprland, KDE Plasma, and GNOME Shell";
+            description = "Cross-platform mouse and keyboard macro recorder and player supporting Wayland/X11";
             homepage = "https://github.com/alper-han/CrossMacro";
-            license = licenses.gpl3;
+            license = licenses.gpl3Plus;
             platforms = platforms.linux;
             mainProgram = "CrossMacro.UI";
             maintainers = with maintainers; [ ];
@@ -143,6 +190,9 @@
 
           # Raw package
           crossmacro = crossmacro;
+          
+          # Daemon
+          daemon = crossmacro-daemon;
 
           # Explicit FHS package
           crossmacro-fhs = crossmacro-fhs;
@@ -153,6 +203,7 @@
           default = {
             type = "app";
             program = pkgs.lib.getExe crossmacro-fhs;
+            meta = crossmacro-fhs.meta;
           };
         };
 
@@ -168,17 +219,14 @@
           LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath runtimeLibs}";
 
           shellHook = ''
-            echo "🚀 CrossMacro Development Environment"
+            echo "CrossMacro Development Environment"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "Dotnet SDK: $(dotnet --version)"
+            echo "Systemd service required for Input Access."
             echo ""
             echo "Commands:"
             echo "  dotnet run --project src/CrossMacro.UI/CrossMacro.UI.csproj"
             echo "  dotnet build"
-            echo ""
-            echo "⚠️  Input Device Access Required:"
-            echo "   sudo usermod -aG input \$USER"
-            echo "   (logout and login again after)"
             echo ""
           '';
         };
@@ -199,6 +247,7 @@
         with lib;
         let
           cfg = config.programs.crossmacro;
+          daemonPkg = self.packages.${pkgs.stdenv.hostPlatform.system}.daemon;
         in
         {
           options.programs.crossmacro = {
@@ -207,30 +256,58 @@
             package = mkOption {
               type = types.package;
               default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-              description = "The CrossMacro package to use";
+              description = "The CrossMacro UI package to use";
             };
-
-            addUsersToInputGroup = mkOption {
-              type = types.bool;
-              default = true;
-              description = "Whether to add all normal users to the input group";
+            
+            daemonPackage = mkOption {
+              type = types.package;
+              default = daemonPkg;
+              description = "The CrossMacro Daemon package to use";
             };
           };
 
           config = mkIf cfg.enable {
             environment.systemPackages = [ cfg.package ];
 
-            # Automatically add all normal users to input group
-            users.groups.input.members = mkIf cfg.addUsersToInputGroup (
-              attrNames (filterAttrs (_: user: user.isNormalUser) config.users.users)
-            );
+            # Enable uinput for virtual input device creation (required for playback)
+            hardware.uinput.enable = true;
 
-            # Add udev rules for input device access
+            # Fix uinput permissions - NixOS default uses ACLs but group perms are ---
+            # This ensures the input group has read/write access
             services.udev.extraRules = ''
-              # Allow members of input group to access input devices
-              KERNEL=="event*", SUBSYSTEM=="input", MODE="0660", GROUP="input"
-              KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input"
+              KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"
             '';
+
+            # Install polkit policy for authorization dialogs
+            environment.etc."polkit-1/actions/org.crossmacro.policy".source = 
+              "${cfg.daemonPackage}/share/polkit-1/actions/org.crossmacro.policy";
+
+            users.groups.crossmacro = {};
+
+            users.users.crossmacro = {
+               isSystemUser = true;
+               group = "input";
+               extraGroups = [ "crossmacro" "uinput" ];
+               description = "CrossMacro Input Daemon User";
+            };
+
+            systemd.services.crossmacro = {
+              description = "CrossMacro Input Daemon Service";
+              wantedBy = [ "multi-user.target" ];
+              after = [ "network.target" "dbus.service" "polkit.service" ];
+              wants = [ "dbus.service" "polkit.service" ];
+              path = [ pkgs.polkit ]; # For pkcheck command
+              serviceConfig = {
+                Type = "simple";
+                User = "crossmacro";
+                Group = "input";
+                ExecStart = "${lib.getExe cfg.daemonPackage}";
+                Restart = "always";
+                RestartSec = 5;
+                RuntimeDirectory = "crossmacro";
+                RuntimeDirectoryMode = "0755";
+              };
+            };
           };
         };
     };

@@ -13,277 +13,360 @@ on:
         default: '1.0.0'
 
 jobs:
-  # 1. Core Build Job - Compiles the app once
+  # ============================================
+  # Stage 1: Build Core Binaries (shared by all)
+  # ============================================
   build-core:
-    name: Build Core Application
+    name: Build Core Binaries
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+    
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "push" ]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          VERSION=${VERSION#.}
+        else
+          VERSION="${{ github.event.inputs.version }}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '10.0.x'
     
-    - name: Build and publish application
+    - name: Build Linux UI binary
       run: |
         dotnet publish src/CrossMacro.UI/CrossMacro.UI.csproj \
           -c Release \
           -r linux-x64 \
           --self-contained true \
-          -p:PublishTrimmed=false \
+          -p:PublishSingleFile=true \
+          -p:PublishTrimmed=true \
           -p:PublishAot=false \
-          -o publish/
+          -p:DebugType=None \
+          -p:DebugSymbols=false \
+          -p:Version=${{ steps.version.outputs.version }} \
+          -o publish-linux/
     
-    - name: Upload build artifacts
+    - name: Build Windows UI binary
+      run: |
+        dotnet publish src/CrossMacro.UI/CrossMacro.UI.csproj \
+          -c Release \
+          -r win-x64 \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:PublishTrimmed=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:DebugType=None \
+          -p:DebugSymbols=false \
+          -p:Version=${{ steps.version.outputs.version }} \
+          -o publish-windows/
+    
+    - name: Build Linux Daemon (Native AOT)
+      run: |
+        dotnet publish src/CrossMacro.Daemon/CrossMacro.Daemon.csproj \
+          -c Release \
+          -r linux-x64 \
+          -p:Version=${{ steps.version.outputs.version }} \
+          -o publish-daemon/
+    
+    - name: Upload Linux UI artifacts
       uses: actions/upload-artifact@v6
       with:
-        name: crossmacro-linux-x64
-        path: publish/
+        name: linux-binary
+        path: publish-linux/
         retention-days: 1
-        include-hidden-files: true
+    
+    - name: Upload Linux Daemon artifacts
+      uses: actions/upload-artifact@v6
+      with:
+        name: linux-daemon
+        path: publish-daemon/
+        retention-days: 1
+    
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v6
+      with:
+        name: windows-binary
+        path: publish-windows/
+        retention-days: 1
 
-  # 2. Package DEB
+  # ============================================
+  # Stage 2: Parallel Packaging (all run simultaneously)
+  # ============================================
+  
   package-deb:
     name: Package DEB
     needs: build-core
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
     
-    - name: Extract version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" == "push" ]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          VERSION=${VERSION#.}
-        else
-          VERSION="${{ github.event.inputs.version }}"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: Download build artifacts
+    - name: Download Linux UI binary
       uses: actions/download-artifact@v7
       with:
-        name: crossmacro-linux-x64
+        name: linux-binary
         path: publish/
+    
+    - name: Download Linux Daemon binary
+      uses: actions/download-artifact@v7
+      with:
+        name: linux-daemon
+        path: publish-daemon/
     
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y dpkg-dev fakeroot
+        sudo apt-get install -y dpkg-dev fakeroot patchelf
     
     - name: Build DEB package
       run: |
         cd scripts
         chmod +x build_deb.sh
-        VERSION="${{ steps.version.outputs.version }}" PUBLISH_DIR="../publish" ./build_deb.sh
+        VERSION="${{ needs.build-core.outputs.version }}" PUBLISH_DIR="../publish" DAEMON_DIR="../publish-daemon" ./build_deb.sh
     
-    - name: Generate checksum
-      run: |
-        cd scripts
-        sha256sum *.deb > crossmacro-deb.sha256
-    
-    - name: Upload to Release
-      if: github.event_name == 'push'
-      uses: softprops/action-gh-release@v2
+    - name: Upload DEB artifact
+      uses: actions/upload-artifact@v6
       with:
-        name: CrossMacro v${{ steps.version.outputs.version }}
-        draft: false
-        prerelease: false
-        make_latest: true
-        files: |
+        name: deb-package
+        path: |
           scripts/*.deb
-          scripts/crossmacro-deb.sha256
-        overwrite_files: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        retention-days: 1
 
-  # 3. Package RPM
   package-rpm:
     name: Package RPM
-    needs: package-deb
+    needs: build-core
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
     
-    - name: Extract version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" == "push" ]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          VERSION=${VERSION#.}
-        else
-          VERSION="${{ github.event.inputs.version }}"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: Download build artifacts
+    - name: Download Linux UI binary
       uses: actions/download-artifact@v7
       with:
-        name: crossmacro-linux-x64
+        name: linux-binary
         path: publish/
+    
+    - name: Download Linux Daemon binary
+      uses: actions/download-artifact@v7
+      with:
+        name: linux-daemon
+        path: publish-daemon/
     
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y rpm
+        sudo apt-get install -y rpm checkpolicy semodule-utils patchelf
     
     - name: Build RPM package
       run: |
         cd scripts
         chmod +x build_rpm.sh
-        VERSION="${{ steps.version.outputs.version }}" PUBLISH_DIR="../publish" ./build_rpm.sh
+        VERSION="${{ needs.build-core.outputs.version }}" PUBLISH_DIR="../publish" DAEMON_DIR="../publish-daemon" ./build_rpm.sh
     
-    - name: Generate checksum
-      run: |
-        cd scripts
-        sha256sum *.rpm > crossmacro-rpm.sha256
-    
-    - name: Upload to Release
-      if: github.event_name == 'push'
-      uses: softprops/action-gh-release@v2
+    - name: Upload RPM artifact
+      uses: actions/upload-artifact@v6
       with:
-        name: CrossMacro v${{ steps.version.outputs.version }}
-        draft: false
-        prerelease: false
-        make_latest: true
-        files: |
+        name: rpm-package
+        path: |
           scripts/*.rpm
-          scripts/crossmacro-rpm.sha256
-        overwrite_files: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        retention-days: 1
 
-  # 4. Package AppImage
   package-appimage:
     name: Package AppImage
-    needs: package-rpm
+    needs: build-core
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
     
-    - name: Extract version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" == "push" ]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          VERSION=${VERSION#.}
-        else
-          VERSION="${{ github.event.inputs.version }}"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: Download build artifacts
+    - name: Download Linux binary
       uses: actions/download-artifact@v7
       with:
-        name: crossmacro-linux-x64
+        name: linux-binary
         path: publish/
     
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libfuse2 file desktop-file-utils
+        sudo apt-get install -y libfuse2 file desktop-file-utils patchelf
     
     - name: Build AppImage
       run: |
         cd scripts
         chmod +x build_appimage.sh
-        VERSION="${{ steps.version.outputs.version }}" PUBLISH_DIR="../publish" ./build_appimage.sh
+        VERSION="${{ needs.build-core.outputs.version }}" PUBLISH_DIR="../publish" ./build_appimage.sh
     
-    - name: Generate checksum
-      run: |
-        cd scripts
-        sha256sum *.AppImage > crossmacro-appimage.sha256
-    
-    - name: Upload to Release
-      if: github.event_name == 'push'
-      uses: softprops/action-gh-release@v2
+    - name: Upload AppImage artifact
+      uses: actions/upload-artifact@v6
       with:
-        name: CrossMacro v${{ steps.version.outputs.version }}
-        draft: false
-        prerelease: false
-        make_latest: true
-        files: |
+        name: appimage-package
+        path: |
           scripts/*.AppImage
-          scripts/crossmacro-appimage.sha256
-        overwrite_files: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        retention-days: 1
 
-  # 5. Build Windows Executable
-  build-windows:
-    name: Build Windows Executable
-    needs: package-appimage
+  package-windows:
+    name: Package Windows
+    needs: build-core
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download Windows binary
+      uses: actions/download-artifact@v7
+      with:
+        name: windows-binary
+        path: publish-windows/
+    
+    - name: Rename executable
+      run: |
+        mv publish-windows/CrossMacro.UI.exe publish-windows/CrossMacro-${{ needs.build-core.outputs.version }}-win-x64.exe
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: windows-package
+        path: |
+          publish-windows/*.exe
+        retention-days: 1
+
+  update-aur:
+    name: Update AUR
+    needs: build-core
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+    - name: Install dependencies
+      run: |
+        pacman -Sy --noconfirm git openssh wget
+        
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Setup SSH for AUR
+      env:
+        AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$AUR_SSH_KEY" > ~/.ssh/id_aur
+        chmod 600 ~/.ssh/id_aur
+        
+
+    
+    - name: Test SSH Connection
+      run: |
+        ssh -i ~/.ssh/id_aur -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T aur@aur.archlinux.org || true
+    
+    - name: Clone AUR repository
+      env:
+        GIT_SSH_COMMAND: ssh -i ~/.ssh/id_aur -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      run: |
+        # Try to clone. If it fails (new package), init a new repo
+        if ! git clone ssh://aur@aur.archlinux.org/crossmacro.git aur-repo; then
+          echo "Clone failed or repo does not exist. Initializing new repo..."
+          mkdir aur-repo
+          cd aur-repo
+          git init
+          git remote add origin ssh://aur@aur.archlinux.org/crossmacro.git
+          git checkout -b master
+        fi
+    
+    - name: Prepare Package Files
+      run: |
+        VERSION=${{ needs.build-core.outputs.version }}
+        
+        # Copy PKGBUILD from source if not present or to overwrite
+        cp scripts/packaging/arch/PKGBUILD aur-repo/
+        
+        cd aur-repo
+        
+        # Update PKGBUILD version
+        sed -i "s/pkgver=.*/pkgver=$VERSION/" PKGBUILD
+        
+        # Calculate and update checksum for source tarball only
+        wget "https://github.com/alper-han/CrossMacro/archive/v$VERSION.tar.gz" -O source.tar.gz
+        SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
+        sed -i "/^sha256sums=/,/)$/c\\sha256sums=('$SHA256'\n            'SKIP')  # sysusers file checksum (local file)" PKGBUILD
+        rm source.tar.gz
+        
+        # Update .SRCINFO
+        useradd builduser
+        chown -R builduser:builduser .
+        su builduser -c "makepkg --printsrcinfo" > .SRCINFO
+    
+    - name: Commit and push to AUR
+      env:
+        GIT_SSH_COMMAND: ssh -i ~/.ssh/id_aur -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      run: |
+        VERSION=${{ needs.build-core.outputs.version }}
+        cd aur-repo
+        
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git config --global --add safe.directory $(pwd)
+        
+        git add PKGBUILD .SRCINFO
+        
+        if ! git diff --quiet --cached; then
+          git commit -m "Update to version $VERSION"
+          git push origin master
+        else
+          echo "No changes to commit."
+        fi
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -rf ~/.ssh/aur
+        rm -rf aur-repo
+
+  # ============================================
+  # Stage 3: Create Release (after all packages ready)
+  # ============================================
+  create-release:
+    name: Create Release
+    needs: [build-core, package-deb, package-rpm, package-appimage, package-windows]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Extract version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" == "push" ]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          VERSION=${VERSION#.}
-        else
-          VERSION="${{ github.event.inputs.version }}"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+    - name: Download all artifacts
+      uses: actions/download-artifact@v7
       with:
-        dotnet-version: '10.0.x'
+        path: artifacts/
     
-    - name: Build Windows executable
+    - name: Generate checksums
       run: |
-        dotnet publish src/CrossMacro.UI/CrossMacro.UI.csproj \
-          -c Release \
-          -r win-x64 \
-          --self-contained \
-          -p:PublishSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:DebugType=None \
-          -p:DebugSymbols=false \
-          -o publish-windows/
-    
-    - name: Rename executable
-      run: |
-        mv publish-windows/CrossMacro.UI.exe publish-windows/CrossMacro-${{ steps.version.outputs.version }}-win-x64.exe
-    
-    - name: Generate checksum
-      run: |
-        cd publish-windows
-        sha256sum *.exe > crossmacro-windows.sha256
+        cd artifacts
+        sha256sum deb-package/*.deb > crossmacro-deb.sha256
+        sha256sum rpm-package/*.rpm > crossmacro-rpm.sha256
+        sha256sum appimage-package/*.AppImage > crossmacro-appimage.sha256
+        sha256sum windows-package/*.exe > crossmacro-windows.sha256
     
     - name: Upload to Release
-      if: github.event_name == 'push'
       uses: softprops/action-gh-release@v2
       with:
-        name: CrossMacro v${{ steps.version.outputs.version }}
+        name: CrossMacro v${{ needs.build-core.outputs.version }}
         draft: false
         prerelease: false
         make_latest: true
         files: |
-          publish-windows/*.exe
-          publish-windows/crossmacro-windows.sha256
+          artifacts/deb-package/*.deb
+          artifacts/crossmacro-deb.sha256
+          artifacts/rpm-package/*.rpm
+          artifacts/crossmacro-rpm.sha256
+          artifacts/appimage-package/*.AppImage
+          artifacts/crossmacro-appimage.sha256
+          artifacts/windows-package/*.exe
+          artifacts/crossmacro-windows.sha256
         overwrite_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,10 @@
+module crossmacro 1.0;
+
+require {
+	type init_t;
+	type event_device_t;
+	class chr_file { ioctl open read write };
+}
+
+#============= init_t ==============
+allow init_t event_device_t:chr_file { ioctl open read write };

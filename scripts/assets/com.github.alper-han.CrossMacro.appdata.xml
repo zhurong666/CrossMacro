@@ -5,28 +5,51 @@
   <project_license>GPL-3.0</project_license>
   <name>CrossMacro</name>
   <developer_name>Alper Han</developer_name>
-  <summary>Mouse Macro Automation Tool</summary>
+  <summary>Cross-platform Mouse and Keyboard Macro Automation Tool</summary>
   <description>
     <p>
-      CrossMacro is a modern mouse macro recording and playback tool designed for Linux Wayland compositors.
-      It supports recording mouse events, playing them back with adjustable speed, and looping.
+      CrossMacro is a powerful cross-platform mouse and keyboard macro recording and playback tool.
+      It supports recording inputs, text expansion, and playing them back with adjustable speed and looping.
+      Works on Linux (Wayland &amp; X11) and Windows.
     </p>
     <p>Features:</p>
     <ul>
-      <li>Record and replay mouse movements and clicks</li>
-      <li>Support for Hyprland, KDE, and GNOME Wayland sessions</li>
-      <li>Global hotkeys for control (F8: Record, F9: Play, F10: Stop)</li>
-      <li>Adjustable playback speed</li>
-      <li>Loop mode for continuous playback</li>
+      <li>Record and replay mouse movements, clicks, and keyboard events</li>
+      <li>Text Expansion support for productivity</li>
+      <li>Cross-platform support (Linux Wayland/X11, Windows)</li>
+      <li>Global hotkeys for control</li>
+      <li>Adjustable playback speed and loop mode</li>
     </ul>
   </description>
   <launchable type="desktop-id">CrossMacro.desktop</launchable>
   <url type="homepage">https://github.com/alper-han/CrossMacro</url>
   <url type="bugtracker">https://github.com/alper-han/CrossMacro/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Recording Tab - Record mouse and keyboard macros</caption>
+      <image>https://raw.githubusercontent.com/alper-han/CrossMacro/main/screenshots/recording-tab.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Playback Tab - Play recorded macros with customizable settings</caption>
+      <image>https://raw.githubusercontent.com/alper-han/CrossMacro/main/screenshots/playback-tab.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Files Tab - Manage saved macro files</caption>
+      <image>https://raw.githubusercontent.com/alper-han/CrossMacro/main/screenshots/files-tab.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Text Expansion Tab - Create text shortcuts</caption>
+      <image>https://raw.githubusercontent.com/alper-han/CrossMacro/main/screenshots/text-expansion-tab.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Settings Tab - Configure application preferences</caption>
+      <image>https://raw.githubusercontent.com/alper-han/CrossMacro/main/screenshots/settings-tab.png</image>
+    </screenshot>
+  </screenshots>
   <releases>
-    <release version="1.0.0" date="2025-11-30">
+    <release version="0.5.2" date="2025-12-21">
       <description>
-        <p>Initial release of CrossMacro.</p>
+        <p>Version 0.5.2 - Improved daemon architecture and packaging.</p>
       </description>
     </release>
   </releases>

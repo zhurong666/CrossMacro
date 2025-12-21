@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Configuration
 APP_NAME="crossmacro"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-0.5.2}"
 PUBLISH_DIR="${PUBLISH_DIR:-../publish}"  # Use env var or default to ../publish
 RPM_BUILD_DIR="rpm_build"
 ICON_PATH="../src/CrossMacro.UI/Assets/mouse-icon.png"
@@ -27,8 +27,42 @@ mkdir -p "$RPM_BUILD_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 # 2. Copy Assets to SOURCES
 echo "Copying assets..."
 cp -r "$PUBLISH_DIR" "$RPM_BUILD_DIR/SOURCES/publish"
+
+# Patch UI binary for non-NixOS systems
+if command -v patchelf >/dev/null; then
+    echo "Patching UI binary interpreter..."
+    patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$RPM_BUILD_DIR/SOURCES/publish/CrossMacro.UI"
+fi
+
+# Build and Copy Daemon
+echo "Copying Daemon files..."
+mkdir -p "$RPM_BUILD_DIR/SOURCES/daemon"
+
+# If DAEMON_DIR is provided, use pre-built daemon; otherwise build it
+if [ -n "$DAEMON_DIR" ] && [ -d "$DAEMON_DIR" ]; then
+    echo "Using pre-built daemon from: $DAEMON_DIR"
+    cp -r "$DAEMON_DIR/"* "$RPM_BUILD_DIR/SOURCES/daemon/"
+else
+    echo "Building Daemon (DAEMON_DIR not set)..."
+    dotnet publish ../src/CrossMacro.Daemon/CrossMacro.Daemon.csproj -c Release -p:Version=$VERSION -o "$RPM_BUILD_DIR/SOURCES/daemon"
+fi
+
+# Patch Daemon binary for non-NixOS systems
+if command -v patchelf >/dev/null; then
+    echo "Patching Daemon binary interpreter..."
+    patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$RPM_BUILD_DIR/SOURCES/daemon/CrossMacro.Daemon"
+fi
+
 cp "$ICON_PATH" "$RPM_BUILD_DIR/SOURCES/crossmacro.png"
 cp "assets/CrossMacro.desktop" "$RPM_BUILD_DIR/SOURCES/CrossMacro.desktop"
+cp "daemon/crossmacro.service" "$RPM_BUILD_DIR/SOURCES/crossmacro.service"
+cp "assets/99-crossmacro.rules" "$RPM_BUILD_DIR/SOURCES/99-crossmacro.rules"
+cp "packaging/rpm/crossmacro.te" "$RPM_BUILD_DIR/SOURCES/crossmacro.te"
+cp "assets/org.crossmacro.policy" "$RPM_BUILD_DIR/SOURCES/org.crossmacro.policy"
+
+# Copy Icons to SOURCES
+mkdir -p "$RPM_BUILD_DIR/SOURCES/icons"
+cp -r "../src/CrossMacro.UI/Assets/icons/"* "$RPM_BUILD_DIR/SOURCES/icons/"
 
 # 3. Copy Spec File
 cp "packaging/rpm/crossmacro.spec" "$RPM_BUILD_DIR/SPECS/"

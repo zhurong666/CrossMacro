@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>CrossMacro</vendor>
+  <vendor_url>https://github.com/alper-han/CrossMacro</vendor_url>
+
+  <!-- 
+    CrossMacro Polkit Actions
+    
+    auth_self = User enters their OWN password (not root)
+    auth_self_keep = Same as auth_self, but cached for 5 minutes
+    
+    This means users don't need root/admin password,
+    just their own login password.
+  -->
+
+  <action id="org.crossmacro.input-capture">
+    <description>Capture keyboard and mouse input</description>
+    <message>CrossMacro needs permission to record your keyboard and mouse input.</message>
+    <icon_name>input-keyboard</icon_name>
+    <defaults>
+      <!-- Remote/inactive sessions require own password -->
+      <allow_any>auth_self</allow_any>
+      <allow_inactive>auth_self</allow_inactive>
+      <!-- Active local sessions: own password, cached for 5 minutes -->
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+    <!-- Allow the 'crossmacro' user (daemon) to check authorization for other users -->
+    <annotate key="org.freedesktop.policykit.owner">unix-user:crossmacro</annotate>
+    <annotate key="org.freedesktop.policykit.imply">org.crossmacro.input-simulate</annotate>
+  </action>
+
+  <action id="org.crossmacro.input-simulate">
+    <description>Simulate keyboard and mouse input</description>
+    <message>CrossMacro needs permission to control your keyboard and mouse.</message>
+    <icon_name>input-mouse</icon_name>
+    <defaults>
+      <allow_any>auth_self</allow_any>
+      <allow_inactive>auth_self</allow_inactive>
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
