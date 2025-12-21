@@ -88,6 +88,82 @@ public class MainWindowViewModel : ViewModelBase
         
         // Start hotkey service
         Settings.StartHotkeyService();
+
+        // Check for updates
+        _ = CheckForUpdatesAsync();
+    }
+
+    // Update Notification Properties
+    private bool _isUpdateNotificationVisible;
+    private string _latestVersion = string.Empty;
+    private string _updateReleaseUrl = string.Empty;
+
+    public bool IsUpdateNotificationVisible
+    {
+        get => _isUpdateNotificationVisible;
+        set
+        {
+            if (_isUpdateNotificationVisible != value)
+            {
+                _isUpdateNotificationVisible = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string LatestVersion
+    {
+        get => _latestVersion;
+        set
+        {
+            if (_latestVersion != value)
+            {
+                _latestVersion = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private async System.Threading.Tasks.Task CheckForUpdatesAsync()
+    {
+        var updateService = (Avalonia.Application.Current as App)?.Services?.GetService(typeof(IUpdateService)) as IUpdateService;
+        if (updateService == null) return;
+
+        var result = await updateService.CheckForUpdatesAsync();
+        if (result.HasUpdate)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                LatestVersion = result.LatestVersion;
+                _updateReleaseUrl = result.ReleaseUrl;
+                IsUpdateNotificationVisible = true;
+            });
+        }
+    }
+
+    public void DismissUpdateNotification()
+    {
+        IsUpdateNotificationVisible = false;
+    }
+
+    public void OpenUpdateUrl()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(_updateReleaseUrl))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _updateReleaseUrl,
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch { }
+        finally
+        {
+            IsUpdateNotificationVisible = false;
+        }
     }
     
     private void SetupViewModelCommunication()

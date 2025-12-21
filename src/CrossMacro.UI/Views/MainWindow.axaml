@@ -92,6 +92,59 @@
             </Grid>
         </Border>
 
+
+        <!-- Update Notification Popup -->
+        <Border Grid.Row="1"
+                Background="#1E293B"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="20"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                IsVisible="{Binding IsUpdateNotificationVisible}"
+                BoxShadow="0 4 12 4 #40000000">
+            <Border.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Border.Transitions>
+            
+            <StackPanel Spacing="8" Width="240">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Update Available" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding LatestVersion, StringFormat='v{0} is available'}" 
+                                  FontSize="12" 
+                                  Foreground="#94A3B8"/>
+                    </StackPanel>
+                    
+                    <Button Grid.Column="1" 
+                            Command="{Binding DismissUpdateNotification}"
+                            Background="Transparent"
+                            Padding="4"
+                            VerticalAlignment="Top"
+                            Margin="8,-4,-4,0">
+                        <TextBlock Text="✕" FontSize="11" Foreground="#64748B"/>
+                    </Button>
+                </Grid>
+                
+                <Button Command="{Binding OpenUpdateUrl}"
+                        HorizontalAlignment="Stretch"
+                        Background="{DynamicResource SystemAccentColor}"
+                        Foreground="White"
+                        CornerRadius="4"
+                        Padding="6">
+                    <TextBlock Text="View on GitHub" 
+                              HorizontalAlignment="Center" 
+                              FontSize="12"
+                              FontWeight="SemiBold"/>
+                </Button>
+            </StackPanel>
+        </Border>
+
         <!-- Drag Handle -->
         <Border Grid.Row="0"
                 Background="Transparent"

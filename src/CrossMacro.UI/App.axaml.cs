@@ -22,6 +22,7 @@ namespace CrossMacro.UI;
 public partial class App : Application
 {
     private IServiceProvider? _serviceProvider;
+    public IServiceProvider? Services => _serviceProvider;
     
     public override void Initialize()
     {
@@ -146,6 +147,9 @@ public partial class App : Application
         services.AddSingleton<ITextExpansionService, TextExpansionService>();
         services.AddSingleton<IDialogService, DialogService>();
 
+
+        services.AddSingleton<IUpdateService, GitHubUpdateService>();
+
         _serviceProvider = services.BuildServiceProvider();
     }
 
@@ -194,36 +198,7 @@ public partial class App : Application
                 }
             };
             
-            // First-run GitHub star prompt
-            if (!settingsService.Current.HasAskedForStar)
-            {
-                desktop.MainWindow.Opened += async (s, e) =>
-                {
-                    var dialogService = _serviceProvider.GetRequiredService<IDialogService>();
-                    var wantToStar = await dialogService.ShowConfirmationAsync(
-                        "Support CrossMacro",
-                        "Consider giving it a ⭐ on GitHub!",
-                        "Open GitHub",
-                        "Later"
-                    );
-                    
-                    if (wantToStar)
-                    {
-                        try
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                            {
-                                FileName = "https://github.com/alper-han/CrossMacro",
-                                UseShellExecute = true
-                            });
-                        }
-                        catch { }
-                    }
-                    
-                    settingsService.Current.HasAskedForStar = true;
-                    settingsService.Save();
-                };
-            }
+
         }
 
         base.OnFrameworkInitializationCompleted();

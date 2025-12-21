@@ -155,4 +155,22 @@ public class SettingsViewModel : ViewModelBase
             Log.Error(ex, "Hotkey service start error");
         }
     }
+    /// <summary>
+    /// Open the GitHub repository
+    /// </summary>
+    public void OpenGitHub()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://github.com/alper-han/CrossMacro",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open GitHub URL");
+        }
+    }
 }
