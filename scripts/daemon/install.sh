@@ -36,16 +36,17 @@ echo "Setting up user and groups..."
 
 if ! getent group crossmacro >/dev/null; then
   echo "   Creating group 'crossmacro'..."
-  groupadd crossmacro
+  groupadd -r crossmacro
 fi
 
 if ! id "crossmacro" &>/dev/null; then
   echo "   Creating system user 'crossmacro'..."
-  useradd -r -s /bin/false -g crossmacro crossmacro
+  useradd -r -s /bin/false -g input -G crossmacro crossmacro
 fi
 
-# Add daemon user to required groups
+# Ensure daemon user is in both required groups
 usermod -aG input crossmacro 2>/dev/null || echo "   Warning: Failed to add to input group"
+usermod -aG crossmacro crossmacro 2>/dev/null || echo "   Warning: Failed to add to crossmacro group"
 
 
 # Add the installing user to crossmacro group
