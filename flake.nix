@@ -264,9 +264,22 @@
               default = daemonPkg;
               description = "The CrossMacro Daemon package to use";
             };
+
+            users = mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "Users to add to the crossmacro group for daemon communication";
+            };
           };
 
           config = mkIf cfg.enable {
+            assertions = [
+              {
+                assertion = cfg.users != [ ];
+                message = "CrossMacro: You must configure at least one user to access the input daemon.\n       Please set `programs.crossmacro.users = [ \"yourusername\" ];` in your NixOS configuration.";
+              }
+            ];
+
             environment.systemPackages = [ cfg.package ];
 
             # Enable uinput for virtual input device creation (required for playback)
@@ -284,11 +297,17 @@
 
             users.groups.crossmacro = {};
 
-            users.users.crossmacro = {
-               isSystemUser = true;
-               group = "input";
-               extraGroups = [ "crossmacro" "uinput" ];
-               description = "CrossMacro Input Daemon User";
+            # Add specified users to the crossmacro group and define the daemon user
+            users.users = builtins.listToAttrs (map (user: {
+              name = user;
+              value = { extraGroups = [ "crossmacro" ]; };
+            }) cfg.users) // {
+              crossmacro = {
+                 isSystemUser = true;
+                 group = "input";
+                 extraGroups = [ "crossmacro" "uinput" ];
+                 description = "CrossMacro Input Daemon User";
+              };
             };
 
             systemd.services.crossmacro = {

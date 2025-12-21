@@ -100,6 +100,8 @@ sudo usermod -aG crossmacro $USER
 nix run github:alper-han/CrossMacro
 ```
 
+> **Note:** `nix run` does not install the background daemon. For it to work, you must manually configure permissions (add yourself to `input` group and set up udev rules) as described in the **AppImage** section below.
+
 **Add to your configuration:**
 
 Add this to your `flake.nix` inputs:
@@ -112,14 +114,14 @@ Then in your NixOS configuration:
 { inputs, ... }: {
   imports = [ inputs.crossmacro.nixosModules.default ];
   
-  programs.crossmacro.enable = true;
-  
-  # Add your user to the crossmacro group
-  users.users.yourusername.extraGroups = [ "crossmacro" ];
+  programs.crossmacro = {
+    enable = true;
+    users = [ "yourusername" ];  # Add users who should access CrossMacro
+  };
 }
 ```
 
-> **Note:** The NixOS module automatically sets up the daemon service, user, and groups. Just add yourself to the `crossmacro` group.
+> **Note:** The NixOS module automatically sets up the daemon service, user, groups, and adds specified users to the `crossmacro` group.
 
 </details>
 
