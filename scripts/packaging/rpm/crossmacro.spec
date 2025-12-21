@@ -94,5 +94,5 @@ fi
 /usr/share/polkit-1/actions/org.crossmacro.policy
 
 %changelog
-* Sat Dec 21 2025 Zynix <crossmacro@zynix.net> - 0.5.2-1
-- Version 0.5.2 release
+* Sat Dec 21 2025 Zynix <crossmacro@zynix.net> - 0.6.0-1
+- Version 0.6.0 release
