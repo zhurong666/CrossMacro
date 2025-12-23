@@ -23,6 +23,9 @@ namespace CrossMacro.Infrastructure.Wayland
         private Connection? _dbusConnection;
         private KdeTrackerService? _trackerService;
         
+        // The qdbus command to use (could be qdbus, qdbus6, qdbus-qt5, or qdbus-qt6)
+        private string _qdbusCommand = "qdbus";
+        
         // Event for notifying about dependency status
         public event EventHandler<string>? ExtensionStatusChanged;
 
@@ -37,7 +40,7 @@ namespace CrossMacro.Infrastructure.Wayland
 
             if (IsSupported)
             {
-                // Check if qdbus is available
+                // Check if qdbus is available (try multiple variants)
                 if (!IsQdbusAvailable())
                 {
                     Log.Warning("[KdePositionProvider] qdbus not found. Please install Qt tools package (qt5-tools, qt6-tools, or qttools5-dev-tools).");
@@ -49,6 +52,7 @@ namespace CrossMacro.Infrastructure.Wayland
                     return;
                 }
 
+                Log.Information("[KdePositionProvider] Using qdbus command: {Command}", _qdbusCommand);
                 StartTracking();
             }
             else
@@ -59,32 +63,42 @@ namespace CrossMacro.Infrastructure.Wayland
 
         private bool IsQdbusAvailable()
         {
-            try
+            // Try multiple qdbus variants (Fedora uses qdbus6/qdbus-qt6, some distros use qdbus-qt5)
+            string[] qdbusVariants = ["qdbus", "qdbus6", "qdbus-qt6", "qdbus-qt5"];
+            
+            foreach (var variant in qdbusVariants)
             {
-                var which = Process.Start(new ProcessStartInfo
+                try
                 {
-                    FileName = "which",
-                    Arguments = "qdbus",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-                });
+                    var which = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "which",
+                        Arguments = variant,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+                    });
 
-                if (which != null)
-                {
-                    which.WaitForExit();
-                    return which.ExitCode == 0;
+                    if (which != null)
+                    {
+                        which.WaitForExit();
+                        if (which.ExitCode == 0)
+                        {
+                            _qdbusCommand = variant;
+                            Log.Debug("[KdePositionProvider] Found qdbus variant: {Variant}", variant);
+                            return true;
+                        }
+                    }
                 }
-
-                return false;
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "[KdePositionProvider] Failed to check for {Variant}", variant);
+                }
             }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "[KdePositionProvider] Failed to check for qdbus availability");
-                return false;
-            }
+            
+            return false;
         }
 
         private void StartTracking()
@@ -195,7 +209,7 @@ console.error('[CrossMacro] Position tracking started');
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = "qdbus",
+                        FileName = _qdbusCommand,
                         Arguments = $"org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript {_tempJsFile}",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
@@ -228,7 +242,7 @@ console.error('[CrossMacro] Position tracking started');
                 // 4. Run script
                 var runProcess = Process.Start(new ProcessStartInfo
                 {
-                    FileName = "qdbus",
+                    FileName = _qdbusCommand,
                     Arguments = $"org.kde.KWin /Scripting/Script{_scriptId} run",
                     RedirectStandardError = true,
                     CreateNoWindow = true,
@@ -315,7 +329,7 @@ console.error('[CrossMacro] Position tracking started');
                 {
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = "qdbus",
+                        FileName = _qdbusCommand,
                         Arguments = $"org.kde.KWin /Scripting/Script{_scriptId} stop",
                         CreateNoWindow = true,
                         RedirectStandardError = true,
@@ -325,7 +339,7 @@ console.error('[CrossMacro] Position tracking started');
 
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = "qdbus",
+                        FileName = _qdbusCommand,
                         Arguments = $"org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript {_scriptId}",
                         CreateNoWindow = true,
                         RedirectStandardError = true,
