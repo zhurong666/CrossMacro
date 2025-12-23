@@ -19,7 +19,7 @@ build() {
     cd "CrossMacro-${pkgver}"
     
     export DOTNET_SKIP_WORKLOAD_INTEGRITY_CHECK=1
-    dotnet restore
+    dotnet restore -r linux-x64
     
     # Build UI
     dotnet publish src/CrossMacro.UI/CrossMacro.UI.csproj \
