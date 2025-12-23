@@ -51,5 +51,6 @@
     <ProjectReference Include="../CrossMacro.Infrastructure/CrossMacro.Infrastructure.csproj" />
     <ProjectReference Include="../CrossMacro.Platform.Linux/CrossMacro.Platform.Linux.csproj" />
     <ProjectReference Include="../CrossMacro.Platform.Windows/CrossMacro.Platform.Windows.csproj" />
+    <ProjectReference Include="../CrossMacro.Platform.MacOS/CrossMacro.Platform.MacOS.csproj" />
   </ItemGroup>
 </Project>

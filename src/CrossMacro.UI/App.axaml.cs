@@ -10,12 +10,12 @@ using CrossMacro.Core.Services;
 using CrossMacro.Core.Models;
 using CrossMacro.UI.ViewModels;
 using CrossMacro.UI.Views;
-using CrossMacro.Core.Wayland;
 using CrossMacro.Infrastructure.Services;
 using CrossMacro.Infrastructure.Wayland;
 using CrossMacro.UI.Services;
 using CrossMacro.Platform.Linux;
 using CrossMacro.Platform.Windows;
+using CrossMacro.Platform.MacOS;
 
 namespace CrossMacro.UI;
 
@@ -42,7 +42,7 @@ public partial class App : Application
             return configService.Load();
         });
         
-        services.AddSingleton<IGlobalHotkeyService, GlobalHotkeyService>();
+        // GlobalHotkeyService is registered after platform-specific factories below
         services.AddSingleton<IMacroFileManager, MacroFileManager>();
         
         if (OperatingSystem.IsWindows())
@@ -58,6 +58,23 @@ public partial class App : Application
                 var positionProvider = sp.GetRequiredService<IMousePositionProvider>();
                 Func<IInputSimulator> simulatorFactory = () => new WindowsInputSimulator();
                 Func<IInputCapture> captureFactory = () => new WindowsInputCapture();
+                return new MacroRecorder(positionProvider, simulatorFactory, captureFactory);
+            });
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            services.AddMacOSServices();
+            services.AddSingleton<IKeyboardLayoutService, KeyboardLayoutService>();
+
+            // Register factories for macOS
+            services.AddTransient<Func<IInputSimulator>>(sp => () => sp.GetRequiredService<IInputSimulator>());
+            services.AddTransient<Func<IInputCapture>>(sp => () => sp.GetRequiredService<IInputCapture>());
+            
+            services.AddTransient<IMacroRecorder>(sp =>
+            {
+                var positionProvider = sp.GetRequiredService<IMousePositionProvider>();
+                Func<IInputSimulator> simulatorFactory = () => sp.GetRequiredService<IInputSimulator>();
+                Func<IInputCapture> captureFactory = () => sp.GetRequiredService<IInputCapture>();
                 return new MacroRecorder(positionProvider, simulatorFactory, captureFactory);
             });
         }
@@ -113,9 +130,19 @@ public partial class App : Application
                 
                 Func<IInputSimulator> simulatorFactory = () => factory.CreateSimulator();
                 Func<IInputCapture> captureFactory = () => factory.CreateCapture();
+                
                 return new MacroRecorder(positionProvider, simulatorFactory, captureFactory);
             });
         }
+        
+        // GlobalHotkeyService must be registered after Func<IInputCapture> factories
+        services.AddSingleton<IGlobalHotkeyService>(sp =>
+        {
+            var configService = sp.GetRequiredService<IHotkeyConfigurationService>();
+            var layoutService = sp.GetRequiredService<IKeyboardLayoutService>();
+            var captureFactory = sp.GetService<Func<IInputCapture>>();
+            return new GlobalHotkeyService(configService, layoutService, captureFactory);
+        });
         
         services.AddTransient<PlaybackValidator>();
         
@@ -133,7 +160,7 @@ public partial class App : Application
         
         services.AddSingleton<AvaloniaClipboardService>();
 
-        if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
         {
             services.AddSingleton<IClipboardService>(sp => sp.GetRequiredService<AvaloniaClipboardService>());
         }
@@ -201,9 +228,32 @@ public partial class App : Application
 
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+             if (!CrossMacro.Platform.MacOS.MacOSPermissionChecker.IsAccessibilityTrusted())
+             {
+                 var dialogService = _serviceProvider?.GetRequiredService<IDialogService>();
+                 if (dialogService != null)
+                 {
+                     _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => {
+                        var result = await dialogService.ShowConfirmationAsync(
+                             "Permission Required", 
+                             "CrossMacro requires Accessibility permissions to capture keyboard and mouse input.\n\nWould you like to open System Settings now?",
+                             "Open Settings",
+                             "Later");
+                        
+                        if (result)
+                        {
+                            CrossMacro.Platform.MacOS.MacOSPermissionChecker.OpenAccessibilitySettings();
+                        }
+                     });
+                 }
+             }
+        }
+
         base.OnFrameworkInitializationCompleted();
     }
-
+    
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "We are removing a validator plugin. If it's trimmed, it's not there to remove, which is fine.")]
     private void DisableAvaloniaDataAnnotationValidation()
     {
