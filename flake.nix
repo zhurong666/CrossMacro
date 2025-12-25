@@ -17,7 +17,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        crossmacroVersion = "0.7.1";
+        crossmacroVersion = "0.7.2";
 
         # Runtime libraries required by Avalonia/SkiaSharp on Linux
         # These are critical for FHS environment to work correctly
