@@ -1,6 +1,11 @@
 # CrossMacro
 
-A modern mouse and keyboard macro recording and playback application for Linux (Wayland and X11) and Windows.
+[![Build Status](https://github.com/alper-han/CrossMacro/actions/workflows/pr-check.yml/badge.svg)](https://github.com/alper-han/CrossMacro/actions/workflows/pr-check.yml)
+[![License](https://img.shields.io/github/license/alper-han/CrossMacro)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/alper-han/CrossMacro)](https://github.com/alper-han/CrossMacro/releases)
+
+
+A modern mouse and keyboard macro recording and playback application for Linux (Wayland and X11), Windows, and macOS.
 
 ## Screenshots
 
@@ -19,6 +24,8 @@ A modern mouse and keyboard macro recording and playback application for Linux (
   - GNOME (Wayland & X11) ✓
   - X11 (All other desktop environments) ✓
 - **Windows** ✓
+- **macOS** ✓
+
 
 ### Partial Support (Relative Positioning)
 - **Linux**
@@ -165,6 +172,26 @@ Download the `.exe` file from [GitHub Releases](https://github.com/alper-han/Cro
 
 </details>
 
+<details>
+<summary><strong>macOS</strong></summary>
+
+Download the `.dmg` file from [GitHub Releases](https://github.com/alper-han/CrossMacro/releases).
+
+1. Open the `.dmg` file.
+2. Drag **CrossMacro** to your **Applications** folder.
+3. Keep the app open in Applications folder. (Double check security settings if it doesn't open).
+
+> **Note:** Requires **Accessibility Permissions** to record and play macros. You will be prompted to grant these permissions on first run.
+
+> **⚠️ "App is damaged" Error:**
+> If macOS prevents opening the app, run this command in Terminal to bypass Gatekeeper quarantine:
+> ```bash
+> xattr -cr /Applications/CrossMacro.app
+> ```
+
+</details>
+
+
 
 <details>
 <summary><strong>Manual Build (Development)</strong></summary>
@@ -234,24 +261,39 @@ CrossMacro uses **Windows API hooks** for input handling:
 
 </details>
 
+<details>
+<summary><strong>macOS</strong></summary>
+
+CrossMacro uses **CGEvent Taps** (Core Graphics) for input handling:
+
+```
+┌─────────────────┐
+│  CrossMacro UI  │
+└─────────────────┘
+        │
+        ▼
+   Core Graphics (CGEvent)
+   ├─ CGEventCreate()     (simulation)
+   └─ CGEventTapCreate()  (capture)
+```
+
+- **Native Integration**: Uses native macOS APIs for high performance.
+- **Permissions**: Requires Accessibility API access (System Settings > Privacy & Security > Accessibility).
+
+</details>
+
 ## 🛠️ Troubleshooting
 
 <details>
 <summary><strong>GNOME: Extension Required</strong></summary>
 
-CrossMacro requires a GNOME Shell extension to **read mouse position** on Wayland. The extension is **automatically installed** when you first run CrossMacro.
+CrossMacro requires a GNOME Shell extension to **read mouse position** on Wayland. The extension is **automatically installed and enabled** when you first run CrossMacro.
+
+> **Note:** You need to **log out and log back in** for the extension to take effect after the first installation.
 
 > **Note:** When using AppImage (without the system daemon), this extension is still required for recording mouse positions. The app will handle input simulation directly via the permissions granted.
 
-**You need an extension manager to enable it:**
-
-| Distro | Command |
-|--------|---------|
-| Fedora | `sudo dnf install gnome-extensions-app` |
-| Ubuntu/Debian | `sudo apt install gnome-shell-extension-manager` |
-| Arch | `sudo pacman -S extension-manager` |
-
-CrossMacro will show a warning if the extension is missing or disabled.
+CrossMacro will show a warning if the extension is not active.
 
 </details>
 

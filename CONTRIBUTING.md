@@ -56,6 +56,17 @@ This section guides you through submitting a bug report for CrossMacro.
    
    No additional setup required - Windows uses API hooks directly.
 
+### macOS Setup
+
+1. **Build and run**:
+   ```bash
+   dotnet build
+   dotnet run --project src/CrossMacro.UI/
+   ```
+
+   **Permissions**: You will be prompted to grant Accessibility permissions on the first run. This is required for CGEvent Taps to function.
+
+
 ## 📥 Pull Requests
 
 1. Fork the repo and create your branch from `main`.
