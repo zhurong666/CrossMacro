@@ -13,22 +13,29 @@ public class HotkeyConfigurationService : IHotkeyConfigurationService
 {
     private readonly string _configPath;
 
-    public HotkeyConfigurationService()
+    public HotkeyConfigurationService() : this(null)
     {
-        var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-        
-        if (string.IsNullOrEmpty(xdgConfigHome))
+    }
+
+    public HotkeyConfigurationService(string? configRootPath)
+    {
+        if (string.IsNullOrEmpty(configRootPath))
         {
-            xdgConfigHome = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+            var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+            
+            if (string.IsNullOrEmpty(xdgConfigHome))
+            {
+                xdgConfigHome = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+            }
+            configRootPath = Path.Combine(xdgConfigHome, "crossmacro");
         }
 
-        var configDir = Path.Combine(xdgConfigHome, "crossmacro");
-        if (!Directory.Exists(configDir))
+        if (!Directory.Exists(configRootPath))
         {
-            Directory.CreateDirectory(configDir);
+            Directory.CreateDirectory(configRootPath);
         }
 
-        _configPath = Path.Combine(configDir, "hotkeys.json");
+        _configPath = Path.Combine(configRootPath, "hotkeys.json");
     }
 
     public HotkeySettings Load()

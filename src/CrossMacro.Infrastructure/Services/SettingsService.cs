@@ -22,15 +22,27 @@ public class SettingsService : ISettingsService
 
     public AppSettings Current => _currentSettings;
 
-    public SettingsService()
+    public SettingsService() : this(null)
     {
-        // Follow XDG Base Directory specification
-        var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-        var configHome = string.IsNullOrEmpty(xdgConfigHome)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config")
-            : xdgConfigHome;
+    }
 
-        _configDirectory = Path.Combine(configHome, AppConstants.AppIdentifier);
+    public SettingsService(string? configRootPath)
+    {
+        if (string.IsNullOrEmpty(configRootPath))
+        {
+            // Follow XDG Base Directory specification
+            var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+            var configHome = string.IsNullOrEmpty(xdgConfigHome)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config")
+                : xdgConfigHome;
+
+            _configDirectory = Path.Combine(configHome, AppConstants.AppIdentifier);
+        }
+        else
+        {
+            _configDirectory = configRootPath;
+        }
+
         _settingsFilePath = Path.Combine(_configDirectory, SettingsFileName);
         
         _currentSettings = new AppSettings();
