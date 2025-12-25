@@ -96,6 +96,11 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         }
         
         options ??= new PlaybackOptions();
+
+        int repeatCount = options.Loop ? options.RepeatCount : 1;
+        bool infiniteLoop = options.Loop && repeatCount == 0;
+        TotalLoops = infiniteLoop ? 0 : repeatCount;
+        CurrentLoop = 1;
         
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         IsPlaying = true;
@@ -208,9 +213,6 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                 Log.Information("[MacroPlayer] No mouse events found in macro, skipping start position move");
             }
             
-            int repeatCount = options.Loop ? options.RepeatCount : 1;
-            bool infiniteLoop = options.Loop && repeatCount == 0;
-            TotalLoops = infiniteLoop ? 0 : repeatCount;
             Log.Information("[MacroPlayer] Loop settings: Loop={Loop}, RepeatCount={Count}, Infinite={Infinite}", options.Loop, repeatCount, infiniteLoop);
             
             int i = 0;

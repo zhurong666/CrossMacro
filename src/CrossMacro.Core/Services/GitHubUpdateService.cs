@@ -33,7 +33,7 @@ public class GitHubUpdateService : IUpdateService
     {
         try
         {
-            using var client = new HttpClient();
+            using var client = CreateClient();
             client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
 
             var response = await client.GetAsync(GitHubApiUrl);
@@ -84,5 +84,9 @@ public class GitHubUpdateService : IUpdateService
         }
 
         return new UpdateCheckResult { HasUpdate = false };
+    }
+    protected virtual HttpClient CreateClient()
+    {
+        return new HttpClient();
     }
 }
