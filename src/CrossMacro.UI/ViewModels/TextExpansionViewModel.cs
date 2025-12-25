@@ -16,16 +16,17 @@ namespace CrossMacro.UI.ViewModels;
 /// </summary>
 public partial class TextExpansionViewModel : ViewModelBase
 {
-    private readonly TextExpansionStorageService _storageService;
+    private readonly ITextExpansionStorageService _storageService;
     private readonly IDialogService _dialogService;
 
     private string _triggerInput = string.Empty;
     private string _replacementInput = string.Empty;
     private ObservableCollection<TextExpansion> _expansions = new();
     
-    public TextExpansionViewModel(TextExpansionStorageService storageService, IDialogService dialogService)
+    public TextExpansionViewModel(ITextExpansionStorageService storageService, IDialogService dialogService)
     {
         _storageService = storageService;
+
         _dialogService = dialogService;
         
         // Load existing expansions asynchronously

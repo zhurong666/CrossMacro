@@ -151,32 +151,63 @@
                 IsVisible="{Binding IsCloseButtonVisible}"
                 PointerPressed="OnTitleBarPointerPressed"/>
 
-        <!-- Close Button -->
-        <Button Grid.Row="0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Width="20"
-                Height="20"
-                Margin="10"
-                Background="#EF4444"
-                Foreground="White"
-                CornerRadius="10"
-                Padding="0"
-                Click="OnCloseApp"
-                Cursor="Hand"
-                IsVisible="{Binding IsCloseButtonVisible}"
-                ToolTip.Tip="Close Application">
-            <Button.Styles>
-                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                    <Setter Property="Background" Value="#DC2626"/>
-                </Style>
-            </Button.Styles>
-            <TextBlock Text="✕" 
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center" 
-                       FontWeight="Bold"
-                       FontSize="10"/>
-        </Button>
+        <!-- Window Control Buttons -->
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="10"
+                    Spacing="8"
+                    IsVisible="{Binding IsCloseButtonVisible}">
+            
+            <!-- Minimize Button -->
+            <Button Width="24"
+                    Height="24"
+                    Background="Transparent"
+                    Foreground="#94A3B8"
+                    Padding="0"
+                    Click="OnMinimizeWindow"
+                    Cursor="Hand"
+                    ToolTip.Tip="Minimize">
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                    <Style Selector="Button:pointerover">
+                        <Setter Property="Foreground" Value="White"/>
+                    </Style>
+                </Button.Styles>
+                <TextBlock Text="─" 
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           FontWeight="Bold"
+                           FontSize="14"/>
+            </Button>
+            
+            <!-- Close Button -->
+            <Button Width="24"
+                    Height="24"
+                    Background="Transparent"
+                    Foreground="#94A3B8"
+                    Padding="0"
+                    Click="OnCloseApp"
+                    Cursor="Hand"
+                    ToolTip.Tip="Close Application">
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="#EF4444"/>
+                    </Style>
+                    <Style Selector="Button:pointerover">
+                        <Setter Property="Foreground" Value="White"/>
+                    </Style>
+                </Button.Styles>
+                <TextBlock Text="✕" 
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           FontWeight="Bold"
+                           FontSize="14"/>
+            </Button>
+        </StackPanel>
 
     </Grid>
 

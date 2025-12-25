@@ -7,79 +7,85 @@
              x:Class="CrossMacro.UI.Views.Tabs.PlaybackTabView"
              x:DataType="vm:PlaybackViewModel">
 
-    <ScrollViewer Padding="10">
-        <StackPanel Spacing="20">
-            <!-- Speed Control -->
-            <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Classes="label" Text="Playback Speed"/>
-                    <TextBlock Grid.Column="1" Text="{Binding PlaybackSpeed, StringFormat='{}{0:0.0}x'}" 
-                              FontWeight="Medium"
-                              FontSize="16"
-                              Foreground="{DynamicResource SystemAccentColor}"/>
-                </Grid>
-                <Slider Minimum="0.1" Maximum="10.0" Value="{Binding PlaybackSpeed}"
-                        TickFrequency="0.1" IsSnapToTickEnabled="True"
-                        IsEnabled="{Binding !IsPlaying}"/>
-            </StackPanel>
-
-            <!-- Loop Controls -->
-            <StackPanel Spacing="12">
-                <CheckBox Content="Loop Playback" IsChecked="{Binding IsLooping}" IsEnabled="{Binding !IsPlaying}"/>
+    <Panel>
+        <ScrollViewer Padding="10">
+            <StackPanel Spacing="20">
+                <!-- Speed Control -->
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Classes="label" Text="Playback Speed"/>
+                        <TextBlock Grid.Column="1" Text="{Binding PlaybackSpeed, StringFormat='{}{0:0.0}x'}" 
+                                  FontWeight="Medium"
+                                  FontSize="16"
+                                  Foreground="{DynamicResource SystemAccentColor}"/>
+                    </Grid>
+                    <Slider Minimum="0.1" Maximum="10.0" Value="{Binding PlaybackSpeed}"
+                            TickFrequency="0.1" IsSnapToTickEnabled="True"
+                            IsEnabled="{Binding !IsPlaying}"/>
+                </StackPanel>
+    
+                <!-- Loop Controls -->
+                <StackPanel Spacing="12">
+                    <CheckBox Content="Loop Playback" IsChecked="{Binding IsLooping}" IsEnabled="{Binding !IsPlaying}"/>
+                    
+                    <Grid ColumnDefinitions="*,*" IsVisible="{Binding IsLooping}">
+                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
+                            <TextBlock Classes="label" Text="Loop Count"/>
+                            <NumericUpDown Value="{Binding LoopCount}" Minimum="0" Maximum="1000" FormatString="0" IsEnabled="{Binding !IsPlaying}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
+                            <TextBlock Classes="label" Text="Loop Delay (ms)"/>
+                            <NumericUpDown Value="{Binding LoopDelayMs}" Minimum="0" Maximum="2147483647" Increment="100" FormatString="0" IsEnabled="{Binding !IsPlaying}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
                 
-                <Grid ColumnDefinitions="*,*" IsVisible="{Binding IsLooping}">
-                    <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
-                        <TextBlock Classes="label" Text="Loop Count"/>
-                        <NumericUpDown Value="{Binding LoopCount}" Minimum="0" Maximum="1000" FormatString="0" IsEnabled="{Binding !IsPlaying}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
-                        <TextBlock Classes="label" Text="Loop Delay (ms)"/>
-                        <NumericUpDown Value="{Binding LoopDelayMs}" Minimum="0" Maximum="2147483647" Increment="100" FormatString="0" IsEnabled="{Binding !IsPlaying}"/>
-                    </StackPanel>
+                <!-- Countdown -->
+                <StackPanel Spacing="8">
+                     <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Classes="label" Text="Countdown (sec)"/>
+                        <TextBlock Grid.Column="1" Text="{Binding CountdownSeconds}" 
+                                  FontWeight="Medium"
+                                  FontSize="16"
+                                  Foreground="{DynamicResource SystemAccentColor}"/>
+                    </Grid>
+                    <NumericUpDown Minimum="0" Maximum="2147483647" Value="{Binding CountdownSeconds}"
+                            Increment="1" FormatString="0" IsEnabled="{Binding !IsPlaying}"/>
+                </StackPanel>
+    
+                <!-- Play Controls -->
+                <Grid ColumnDefinitions="*,*">
+                    <Button Grid.Column="0" Grid.ColumnSpan="2"
+                           Classes="accent"
+                           Content="▶ Play Macro"
+                           Command="{Binding PlayMacroAsync}"
+                           IsEnabled="{Binding CanPlayMacro}"
+                           IsVisible="{Binding !IsPlaying}"
+                           HorizontalAlignment="Stretch"
+                           HorizontalContentAlignment="Center"/>
+                           
+                     <Button Grid.Column="0" Grid.ColumnSpan="2"
+                           Classes="danger"
+                           Content="🛑 STOP PLAYBACK"
+                           Command="{Binding StopPlayback}"
+                           IsVisible="{Binding IsPlaying}"
+                           HorizontalAlignment="Stretch"
+                           HorizontalContentAlignment="Center"
+                           FontWeight="Bold"
+                           FontSize="16"/>
                 </Grid>
-            </StackPanel>
-            
-            <!-- Countdown -->
-            <StackPanel Spacing="8">
-                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Classes="label" Text="Countdown (sec)"/>
-                    <TextBlock Grid.Column="1" Text="{Binding CountdownSeconds}" 
-                              FontWeight="Medium"
-                              FontSize="16"
-                              Foreground="{DynamicResource SystemAccentColor}"/>
-                </Grid>
-                <NumericUpDown Minimum="0" Maximum="2147483647" Value="{Binding CountdownSeconds}"
-                        Increment="1" FormatString="0" IsEnabled="{Binding !IsPlaying}"/>
-            </StackPanel>
+    
+                <TextBlock Classes="label" 
+                          Text="💡 Tip: Loop Count 0 means infinite loop"
+                          HorizontalAlignment="Center"
+                          FontSize="12"
+                          Opacity="0.7"/>
 
-            <!-- Play Controls -->
-            <Grid ColumnDefinitions="*,*">
-                <Button Grid.Column="0" Grid.ColumnSpan="2"
-                       Classes="accent"
-                       Content="▶ Play Macro"
-                       Command="{Binding PlayMacroAsync}"
-                       IsEnabled="{Binding CanPlayMacro}"
-                       IsVisible="{Binding !IsPlaying}"
-                       HorizontalAlignment="Stretch"
-                       HorizontalContentAlignment="Center"/>
-                       
-                 <Button Grid.Column="0" Grid.ColumnSpan="2"
-                       Classes="danger"
-                       Content="🛑 STOP PLAYBACK"
-                       Command="{Binding StopPlayback}"
-                       IsVisible="{Binding IsPlaying}"
-                       HorizontalAlignment="Stretch"
-                       HorizontalContentAlignment="Center"
-                       FontWeight="Bold"
-                       FontSize="16"/>
-            </Grid>
+                <!-- NEW: Bottom Spacer -->
+                <Rectangle Height="40" Fill="Transparent"/>
 
-            <TextBlock Classes="label" 
-                      Text="💡 Tip: Loop Count 0 means infinite loop"
-                      HorizontalAlignment="Center"
-                      FontSize="12"
-                      Opacity="0.7"/>
-        </StackPanel>
-    </ScrollViewer>
+            </StackPanel>
+        </ScrollViewer>
+    </Panel>
 
 </UserControl>

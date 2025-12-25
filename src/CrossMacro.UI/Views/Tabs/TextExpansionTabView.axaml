@@ -8,151 +8,156 @@
              x:DataType="vm:TextExpansionViewModel"
              x:Name="Root">
 
-    <ScrollViewer Padding="16">
-        <StackPanel Spacing="24">
-            
-            <!-- ADD NEW EXPANSION -->
-            <Border Background="#1E293B" CornerRadius="8" Padding="16">
-                <StackPanel Spacing="16">
-                    <TextBlock Text="ADD NEW EXPANSION" 
-                               FontSize="12" 
-                               FontWeight="Bold" 
-                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                    
-                    <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto">
-                        <!-- Trigger -->
-                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
-                            <TextBlock Text="Trigger" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                            <TextBox Watermark=":mail" 
-                                     Text="{Binding TriggerInput}"
-                                     CornerRadius="6"
-                                     Padding="10"/>
-                        </StackPanel>
-                        
-                        <!-- Arrow -->
-                        <TextBlock Grid.Row="0" Grid.Column="1" 
-                                   Text="→" 
-                                   FontSize="20" 
-                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                                   VerticalAlignment="Center"
-                                   Margin="12,22,12,0"/>
-                        
-                        <!-- Replacement -->
-                        <StackPanel Grid.Row="0" Grid.Column="2" Spacing="6">
-                            <TextBlock Text="Replacement" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                            <TextBox Watermark="email@example.com" 
-                                     Text="{Binding ReplacementInput}"
-                                     CornerRadius="6"
-                                     Padding="10"/>
-                        </StackPanel>
-                    </Grid>
-                    
-                    <Button Content="+ Add" 
-                            Classes="secondary"
-                            Command="{Binding AddExpansionCommand}"
-                            HorizontalAlignment="Stretch" 
-                            HorizontalContentAlignment="Center"/>
-                </StackPanel>
-            </Border>
-
-            <!-- SAVED EXPANSIONS -->
-            <Border Background="#1E293B" CornerRadius="8" Padding="16" MinHeight="200"
-                    IsVisible="{Binding HasExpansions}">
-                <Grid RowDefinitions="Auto,*">
-                    <!-- Header -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-                        <TextBlock Text="SAVED EXPANSIONS" 
-                                   VerticalAlignment="Center"
+    <Panel>
+        <ScrollViewer Padding="16">
+            <StackPanel Spacing="24">
+                
+                <!-- ADD NEW EXPANSION -->
+                <Border Background="#1E293B" CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="ADD NEW EXPANSION" 
                                    FontSize="12" 
                                    FontWeight="Bold" 
                                    Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                         
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{Binding Expansions.Count, StringFormat='{}{0} items'}" 
-                                       VerticalAlignment="Center"
+                        <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto">
+                            <!-- Trigger -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                                <TextBlock Text="Trigger" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                <TextBox Watermark=":mail" 
+                                         Text="{Binding TriggerInput}"
+                                         CornerRadius="6"
+                                         Padding="10"/>
+                            </StackPanel>
+                            
+                            <!-- Arrow -->
+                            <TextBlock Grid.Row="0" Grid.Column="1" 
+                                       Text="→" 
+                                       FontSize="20" 
                                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                                       FontSize="12"/>
-                            <!-- Trash icon could go here if implementing bulk delete -->
-                        </StackPanel>
-                    </Grid>
-                    
-                    <!-- Empty State -->
-                    <TextBlock Grid.Row="1" 
-                               Text="No saved expansions" 
-                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
-                               HorizontalAlignment="Center" 
-                               VerticalAlignment="Center"
-                               IsVisible="{Binding !Expansions.Count}"/>
-
-                    <!-- List -->
-                    <ItemsControl Grid.Row="1" ItemsSource="{Binding Expansions}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="Transparent" 
-                                        BorderBrush="#334155" 
-                                        BorderThickness="0,0,0,0" 
-                                        Padding="0,12">
-                                    <Grid ColumnDefinitions="Auto,*,Auto">
-                                        
-<!-- Checkbox -->
-                                        <CheckBox Grid.Column="0" 
-                                                  IsChecked="{Binding IsEnabled}" 
-                                                  Command="{Binding #Root.((vm:TextExpansionViewModel)DataContext).ToggleExpansionCommand}"
-                                                  CommandParameter="{Binding}"
-                                                  VerticalAlignment="Center"
-                                                  Margin="0,0,12,0"/>
-                                        
-                                        <!-- Content -->
-                                        <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
-                                            <TextBlock Grid.Column="0" 
-                                                       Text="{Binding Trigger}" 
-                                                       Foreground="{DynamicResource SystemAccentColor}" 
-                                                       FontWeight="Bold"
-                                                       FontSize="14"/>
+                                       VerticalAlignment="Center"
+                                       Margin="12,22,12,0"/>
+                            
+                            <!-- Replacement -->
+                            <StackPanel Grid.Row="0" Grid.Column="2" Spacing="6">
+                                <TextBlock Text="Replacement" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                <TextBox Watermark="email@example.com" 
+                                         Text="{Binding ReplacementInput}"
+                                         CornerRadius="6"
+                                         Padding="10"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <Button Content="+ Add" 
+                                Classes="secondary"
+                                Command="{Binding AddExpansionCommand}"
+                                HorizontalAlignment="Stretch" 
+                                HorizontalContentAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+    
+                <!-- SAVED EXPANSIONS -->
+                <Border Background="#1E293B" CornerRadius="8" Padding="16" MinHeight="200"
+                        IsVisible="{Binding HasExpansions}">
+                    <Grid RowDefinitions="Auto,*">
+                        <!-- Header -->
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+                            <TextBlock Text="SAVED EXPANSIONS" 
+                                       VerticalAlignment="Center"
+                                       FontSize="12" 
+                                       FontWeight="Bold" 
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding Expansions.Count, StringFormat='{}{0} items'}" 
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                           FontSize="12"/>
+                                <!-- Trash icon could go here if implementing bulk delete -->
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Empty State -->
+                        <TextBlock Grid.Row="1" 
+                                   Text="No saved expansions" 
+                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding !Expansions.Count}"/>
+    
+                        <!-- List -->
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Expansions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="Transparent" 
+                                            BorderBrush="#334155" 
+                                            BorderThickness="0,0,0,0" 
+                                            Padding="0,12">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
                                             
-                                            <TextBlock Grid.Column="1" 
-                                                       Text="→" 
-                                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
-                                                       FontSize="14"
-                                                       Margin="8,0"/>
+    <!-- Checkbox -->
+                                            <CheckBox Grid.Column="0" 
+                                                      IsChecked="{Binding IsEnabled}" 
+                                                      Command="{Binding #Root.((vm:TextExpansionViewModel)DataContext).ToggleExpansionCommand}"
+                                                      CommandParameter="{Binding}"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,12,0"/>
                                             
-                                            <TextBlock Grid.Column="2" 
-                                                       Text="{Binding Replacement}" 
-                                                       Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                                                       FontSize="14"
-                                                       TextWrapping="Wrap"/>
+                                            <!-- Content -->
+                                            <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
+                                                <TextBlock Grid.Column="0" 
+                                                           Text="{Binding Trigger}" 
+                                                           Foreground="{DynamicResource SystemAccentColor}" 
+                                                           FontWeight="Bold"
+                                                           FontSize="14"/>
+                                                
+                                                <TextBlock Grid.Column="1" 
+                                                           Text="→" 
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                                                           FontSize="14"
+                                                           Margin="8,0"/>
+                                                
+                                                <TextBlock Grid.Column="2" 
+                                                           Text="{Binding Replacement}" 
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                                           FontSize="14"
+                                                           TextWrapping="Wrap"/>
+                                            </Grid>
+                                            
+                                            <!-- Delete Button -->
+                                            <Button Grid.Column="2"
+                                                    Classes="icon"
+                                                    Background="Transparent"
+                                                    Padding="8"
+                                                    Command="{Binding #Root.((vm:TextExpansionViewModel)DataContext).RemoveExpansionCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Cursor="Hand">
+                                                <TextBlock Text="🗑" FontSize="14" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover TextBlock">
+                                                        <Setter Property="Foreground" Value="#EF4444"/>
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
                                         </Grid>
-                                        
-                                        <!-- Delete Button -->
-                                        <Button Grid.Column="2"
-                                                Classes="icon"
-                                                Background="Transparent"
-                                                Padding="8"
-                                                Command="{Binding #Root.((vm:TextExpansionViewModel)DataContext).RemoveExpansionCommand}"
-                                                CommandParameter="{Binding}"
-                                                Cursor="Hand">
-                                            <TextBlock Text="🗑" FontSize="14" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                                            <Button.Styles>
-                                                <Style Selector="Button:pointerover TextBlock">
-                                                    <Setter Property="Foreground" Value="#EF4444"/>
-                                                </Style>
-                                            </Button.Styles>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Grid>
-            </Border>
-            
-            <!-- Footer Info -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                <TextBlock Text="💡 Enable in Settings tab to start expanding" 
-                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
-                           FontSize="12"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+                
+                <!-- Footer Info -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <TextBlock Text="💡 Enable in Settings tab to start expanding" 
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                               FontSize="12"/>
+                </StackPanel>
+
+                <!-- NEW: Bottom Spacer -->
+                <Rectangle Height="40" Fill="Transparent"/>
+                
             </StackPanel>
-            
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Panel>
 </UserControl>

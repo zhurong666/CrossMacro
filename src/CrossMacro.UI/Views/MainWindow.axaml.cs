@@ -36,6 +36,11 @@ public partial class MainWindow : Window
         }
     }
     
+    private void OnMinimizeWindow(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+    
     private void OnCloseApp(object? sender, RoutedEventArgs e)
     {
         Close();

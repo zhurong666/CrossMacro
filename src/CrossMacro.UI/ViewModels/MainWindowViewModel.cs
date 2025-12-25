@@ -216,10 +216,7 @@ public class MainWindowViewModel : ViewModelBase
             gnomeProvider.ExtensionStatusChanged += OnExtensionStatusChanged;
         }
         
-        if (_positionProvider is KdePositionProvider kdeProvider)
-        {
-            kdeProvider.ExtensionStatusChanged += OnExtensionStatusChanged;
-        }
+
     }
     
     public string? ExtensionWarning

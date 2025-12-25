@@ -8,8 +8,9 @@
              x:Class="CrossMacro.UI.Views.Tabs.SettingsTabView"
              x:DataType="vm:SettingsViewModel">
 
-    <Grid>
-        <ScrollViewer Padding="10">
+    <Panel>
+        <ScrollViewer Padding="10" 
+                      VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="20">
 
                 <!-- Hotkey Info -->
@@ -118,6 +119,9 @@
                         </Button>
                     </Grid>
                 </Border>
+                
+                <!-- Bottom Spacer to ensure scrolling works fully -->
+                <Rectangle Height="40" Fill="Transparent"/>
             </StackPanel>
         </ScrollViewer>
         
@@ -150,6 +154,6 @@
                            TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
-    </Grid>
+    </Panel>
 
 </UserControl>

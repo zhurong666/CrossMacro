@@ -7,25 +7,31 @@
              x:Class="CrossMacro.UI.Views.Tabs.FilesTabView"
              x:DataType="vm:FilesViewModel">
 
-    <ScrollViewer Padding="10">
-        <StackPanel Spacing="20">
-            <!-- Macro Name -->
-            <StackPanel Spacing="8">
-                <TextBlock Classes="label" Text="Macro Name"/>
-                <TextBox Text="{Binding MacroName}" Watermark="Enter macro name..."/>
-            </StackPanel>
-            
-            <Button Content="📂 Load Macro"
-                    Command="{Binding LoadMacroAsync}"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"/>
+    <Panel>
+        <ScrollViewer Padding="10">
+            <StackPanel Spacing="20">
+                <!-- Macro Name -->
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="label" Text="Macro Name"/>
+                    <TextBox Text="{Binding MacroName}" Watermark="Enter macro name..."/>
+                </StackPanel>
+                
+                <Button Content="📂 Load Macro"
+                        Command="{Binding LoadMacroAsync}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"/>
+    
+                <Button Content="💾 Save Macro"
+                        Command="{Binding SaveMacroAsync}"
+                        IsEnabled="{Binding HasRecordedMacro}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"/>
 
-            <Button Content="💾 Save Macro"
-                    Command="{Binding SaveMacroAsync}"
-                    IsEnabled="{Binding HasRecordedMacro}"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"/>
-        </StackPanel>
-    </ScrollViewer>
+                <!-- NEW: Bottom Spacer -->
+                <Rectangle Height="40" Fill="Transparent"/>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Panel>
 
 </UserControl>

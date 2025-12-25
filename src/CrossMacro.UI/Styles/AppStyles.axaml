@@ -268,4 +268,57 @@
         <Setter Property="Opacity" Value="0.9"/>
     </Style>
     
+    <!-- Custom ScrollBar Style - ALWAYS use SystemAccentColor -->
+    <Style Selector="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    
+    <Style Selector="ScrollBar:vertical">
+        <Setter Property="Width" Value="10"/>
+    </Style>
+
+    <Style Selector="ScrollBar:horizontal">
+        <Setter Property="Height" Value="10"/>
+    </Style>
+    
+    <!-- BASE Thumb Style - Always Accent Color -->
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Opacity" Value="0.6"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Margin="2"/>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    
+    <!-- Hover: Full Opacity -->
+    <Style Selector="ScrollBar:pointerover /template/ Thumb">
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    
+    <Style Selector="ScrollBar /template/ Thumb:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    
+    <!-- Pressed: Full Opacity -->
+    <Style Selector="ScrollBar:pressed /template/ Thumb">
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    
+    <!-- Border inside Thumb - pointerover -->
+    <Style Selector="ScrollBar /template/ Thumb /template/ Border:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+    </Style>
+    
+    <Style Selector="ScrollBar:pointerover /template/ Thumb /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+    </Style>
+
 </Styles>
