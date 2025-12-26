@@ -447,3 +447,15 @@ jobs:
         overwrite_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-winget:
+    name: Publish to Winget
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Publish to Winget
+        uses: alper-han/winget-releaser@main
+        with:
+          identifier: AlperHan.CrossMacro
+          token: ${{ secrets.WINGET_TOKEN }}
