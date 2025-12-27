@@ -1,0 +1,323 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CrossMacro.UI.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
+             x:Class="CrossMacro.UI.Views.Tabs.ScheduleTabView"
+             x:DataType="vm:ScheduleViewModel">
+
+    <ScrollViewer Padding="10">
+        <StackPanel Spacing="16" Margin="0,0,0,50">
+            
+            <!-- Task List Section -->
+            <Border Background="#1E293B" CornerRadius="12" Padding="16"
+                    x:Name="TaskListBorder">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0"
+                                  Text="SCHEDULED TASKS" 
+                                  FontWeight="SemiBold" 
+                                  Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                                  FontSize="12"
+                                  VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1"
+                                  Text="{Binding Tasks.Count, StringFormat='{}{0} items'}"
+                                  VerticalAlignment="Center"
+                                  Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                  FontSize="12"
+                                  Margin="0,0,12,0"/>
+                        <Button Grid.Column="2" 
+                               Command="{Binding AddTaskCommand}"
+                               Classes="icon"
+                               Background="#334155"
+                               CornerRadius="6"
+                               Padding="8,4"
+                               Cursor="Hand">
+                            <TextBlock Text="+" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource SystemAccentColor}"/>
+                        </Button>
+                    </Grid>
+                    
+                    <ItemsControl ItemsSource="{Binding Tasks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="10,8" 
+                                        CornerRadius="8" 
+                                        Margin="0,2"
+                                        Background="#0F172A">
+                                    <Border.Styles>
+                                        <Style Selector="Border:pointerover">
+                                            <Setter Property="Background" Value="#1A2744"/>
+                                        </Style>
+                                    </Border.Styles>
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <!-- Task Info (clickable area for selection) -->
+                                        <Button Grid.Column="0" 
+                                                Background="Transparent"
+                                                Padding="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Command="{Binding #TaskListBorder.((vm:ScheduleViewModel)DataContext).SelectTaskCommand}"
+                                                CommandParameter="{Binding}"
+                                                Cursor="Hand">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                </Style>
+                                            </Button.Styles>
+                                            <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding Name}" 
+                                                          FontWeight="Medium"
+                                                          FontSize="13"
+                                                          TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock FontSize="11" 
+                                                          Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                          TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Text>
+                                                        <MultiBinding StringFormat="{}{0} • {1}">
+                                                            <Binding Path="Type"/>
+                                                            <Binding Path="MacroFilePath" FallbackValue="No file" TargetNullValue="No file"/>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <!-- Toggle Switch -->
+                                        <ToggleSwitch Grid.Column="1" 
+                                                     IsChecked="{Binding IsEnabled}"
+                                                     IsEnabled="{Binding CanBeEnabled}"
+                                                     OnContent="" OffContent=""
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,4,0"/>
+                                        
+                                        <!-- Edit Button -->
+                                        <Button Grid.Column="2"
+                                                Classes="icon"
+                                                Background="Transparent"
+                                                Padding="6"
+                                                Command="{Binding #TaskListBorder.((vm:ScheduleViewModel)DataContext).SelectTaskCommand}"
+                                                CommandParameter="{Binding}"
+                                                Cursor="Hand"
+                                                ToolTip.Tip="Edit task">
+                                            <TextBlock Text="✏️" FontSize="12"/>
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="#334155"/>
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        
+                                        <!-- Delete Button -->
+                                        <Button Grid.Column="3"
+                                                Classes="icon"
+                                                Background="Transparent"
+                                                Padding="6"
+                                                Command="{Binding #TaskListBorder.((vm:ScheduleViewModel)DataContext).RemoveTaskCommand}"
+                                                CommandParameter="{Binding}"
+                                                Cursor="Hand"
+                                                ToolTip.Tip="Delete task">
+                                            <TextBlock Text="🗑" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="#334155"/>
+                                                </Style>
+                                                <Style Selector="Button:pointerover TextBlock">
+                                                    <Setter Property="Foreground" Value="#EF4444"/>
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+            
+            <!-- Task Settings Section (visible when task selected) -->
+            <Border Background="#1E293B" 
+                    CornerRadius="12" 
+                    Padding="16"
+                    IsVisible="{Binding HasSelectedTask}">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="TASK SETTINGS" 
+                              FontWeight="SemiBold" 
+                              Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                              FontSize="12"/>
+                    
+                    <!-- Task Name -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Name" FontSize="12" Opacity="0.7"/>
+                        <TextBox Text="{Binding SelectedTask.Name, Mode=TwoWay}" 
+                                Watermark="Task name"/>
+                    </StackPanel>
+                    
+                    <!-- Playback Speed -->
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="label" Text="Playback Speed"/>
+                            <TextBlock Grid.Column="1" 
+                                      Text="{Binding SelectedTask.PlaybackSpeed, StringFormat='{}{0:0.0}x'}" 
+                                      FontWeight="Medium"
+                                      FontSize="16"
+                                      Foreground="{DynamicResource SystemAccentColor}"/>
+                        </Grid>
+                        <Slider Value="{Binding SelectedTask.PlaybackSpeed, Mode=TwoWay}"
+                               Minimum="0.1" 
+                               Maximum="10.0" 
+                               TickFrequency="0.1"
+                               IsSnapToTickEnabled="True"/>
+                    </StackPanel>
+                    
+                    <!-- Macro File -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Macro File" FontSize="12" Opacity="0.7"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Border Grid.Column="0" 
+                                   Background="#0F172A" 
+                                   CornerRadius="6" 
+                                   Padding="12,8"
+                                   Margin="0,0,8,0">
+                                <TextBlock Text="{Binding SelectedMacroFileName}" 
+                                          VerticalAlignment="Center"
+                                          TextTrimming="CharacterEllipsis"
+                                          ToolTip.Tip="{Binding SelectedMacroFilePath}"/>
+                            </Border>
+                            <Button Grid.Column="1" 
+                                   Content="📂 Browse" 
+                                   Command="{Binding BrowseMacroCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                    
+                    <!-- Schedule Type -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Schedule Type" FontSize="12" Opacity="0.7"/>
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton Content="⏱️ Interval (repeat)" 
+                                        IsChecked="{Binding IsIntervalSelected, Mode=TwoWay}"
+                                        GroupName="ScheduleType"/>
+                            <RadioButton Content="📅 Date/Time (once)" 
+                                        IsChecked="{Binding IsDateTimeSelected, Mode=TwoWay}"
+                                        GroupName="ScheduleType"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            
+            <!-- Interval Settings -->
+            <Border Background="#1E293B" 
+                   CornerRadius="12" 
+                   Padding="16"
+                   IsVisible="{Binding IsIntervalSelected}">
+                <Border.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="HasSelectedTask"/>
+                        <Binding Path="IsIntervalSelected"/>
+                    </MultiBinding>
+                </Border.IsVisible>
+                <StackPanel Spacing="12">
+                    <TextBlock Text="INTERVAL SETTINGS" 
+                              FontWeight="SemiBold" 
+                              Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                              FontSize="12"/>
+                    <TextBlock Text="Run macro every:" FontSize="12" Opacity="0.7"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <NumericUpDown Value="{Binding SelectedTask.IntervalValue, Mode=TwoWay}"
+                                      Minimum="1" Maximum="9999"
+                                      Width="120"/>
+                        <ComboBox SelectedIndex="{Binding SelectedTask.IntervalUnit, Mode=TwoWay}"
+                                 Width="120">
+                            <ComboBoxItem Content="Seconds"/>
+                            <ComboBoxItem Content="Minutes"/>
+                            <ComboBoxItem Content="Hours"/>
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            
+            <!-- DateTime Settings -->
+            <Border Background="#1E293B" 
+                   CornerRadius="12" 
+                   Padding="16">
+                <Border.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="HasSelectedTask"/>
+                        <Binding Path="IsDateTimeSelected"/>
+                    </MultiBinding>
+                </Border.IsVisible>
+                <StackPanel Spacing="12">
+                    <TextBlock Text="DATE/TIME SETTINGS" 
+                              FontWeight="SemiBold" 
+                              Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                              FontSize="12"/>
+                    <TextBlock Text="Run macro at:" FontSize="12" Opacity="0.7"/>
+                    <StackPanel Orientation="Vertical" Spacing="12" HorizontalAlignment="Left">
+                        <DatePicker SelectedDate="{Binding ScheduledDate, Mode=TwoWay}"
+                                   HorizontalAlignment="Stretch"/>
+                        <TimePicker SelectedTime="{Binding ScheduledTime, Mode=TwoWay}"
+                                   UseSeconds="True"
+                                   HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    <TextBlock Text="💡 The macro will run once at the selected date" 
+                              FontSize="11" Opacity="0.5"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Status Section -->
+            <Border Background="#1E293B" 
+                   CornerRadius="12" 
+                   Padding="16"
+                   IsVisible="{Binding HasSelectedTask}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="STATUS" 
+                              FontWeight="SemiBold" 
+                              Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                              FontSize="12"/>
+                    <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Last Run:" FontSize="12" Opacity="0.7"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" 
+                                  Text="{Binding SelectedTask.LastRunTime, StringFormat='{}{0:G}', TargetNullValue='Never'}" 
+                                  FontSize="12"/>
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Next Run:" FontSize="12" Opacity="0.7"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" 
+                                  Text="{Binding SelectedTask.NextRunTime, StringFormat='{}{0:G}', TargetNullValue='Not scheduled'}" 
+                                  FontSize="12"/>
+                        
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Status:" FontSize="12" Opacity="0.7"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" 
+                                  Text="{Binding SelectedTask.LastStatus, TargetNullValue='—'}" 
+                                  FontSize="12"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <!-- Save Button -->
+            <Button Content="💾 Save All Tasks" 
+                   Command="{Binding SaveCommand}"
+                   Classes="success"
+                   HorizontalAlignment="Right"
+                   IsVisible="{Binding HasSelectedTask}"/>
+            
+            <!-- Empty State -->
+            <Border Background="#1E293B" 
+                    CornerRadius="12" 
+                    Padding="32"
+                    IsVisible="{Binding !HasSelectedTask}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                    <TextBlock Text="🕐" FontSize="48" HorizontalAlignment="Center"/>
+                    <TextBlock Text="No Task Selected" 
+                              FontSize="16" 
+                              FontWeight="Medium"
+                              HorizontalAlignment="Center"/>
+                    <TextBlock Text="Select a task from the list above or add a new one" 
+                              FontSize="12" 
+                              Opacity="0.6"
+                              HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

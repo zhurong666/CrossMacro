@@ -33,6 +33,7 @@ public class MainWindowViewModel : ViewModelBase
     public PlaybackViewModel Playback { get; }
     public FilesViewModel Files { get; }
     public TextExpansionViewModel TextExpansion { get; }
+    public ScheduleViewModel Schedule { get; }
     public SettingsViewModel Settings { get; }
     
     
@@ -149,6 +150,7 @@ public class MainWindowViewModel : ViewModelBase
         PlaybackViewModel playback,
         FilesViewModel files,
         TextExpansionViewModel textExpansion,
+        ScheduleViewModel schedule,
         SettingsViewModel settings,
         IGlobalHotkeyService hotkeyService,
         IMousePositionProvider positionProvider)
@@ -157,6 +159,7 @@ public class MainWindowViewModel : ViewModelBase
         Playback = playback;
         Files = files;
         TextExpansion = textExpansion;
+        Schedule = schedule;
         Settings = settings;
         _hotkeyService = hotkeyService;
         _positionProvider = positionProvider;
@@ -185,10 +188,11 @@ public class MainWindowViewModel : ViewModelBase
         // Initialize Navigation
         TopNavigationItems = new ObservableCollection<NavigationItem>
         {
-            new NavigationItem { Label = "Recording", Icon = "◉", ViewModel = Recording },
+            new NavigationItem { Label = "Recording", Icon = "🔴", ViewModel = Recording },
             new NavigationItem { Label = "Playback", Icon = "▶️", ViewModel = Playback },
             new NavigationItem { Label = "Files", Icon = "💾", ViewModel = Files },
-            new NavigationItem { Label = "Text Expansion", Icon = "📝", ViewModel = TextExpansion }
+            new NavigationItem { Label = "Text Expansion", Icon = "📝", ViewModel = TextExpansion },
+            new NavigationItem { Label = "Schedule", Icon = "🕐", ViewModel = Schedule }
         };
 
         BottomNavigationItems = new ObservableCollection<NavigationItem>
@@ -236,21 +240,29 @@ public class MainWindowViewModel : ViewModelBase
 
     private async System.Threading.Tasks.Task CheckForUpdatesAsync()
     {
-        // Check if updates are enabled in settings
-        if (!Settings.CheckForUpdates) return;
-
-        var updateService = (Avalonia.Application.Current as App)?.Services?.GetService(typeof(IUpdateService)) as IUpdateService;
-        if (updateService == null) return;
-
-        var result = await updateService.CheckForUpdatesAsync();
-        if (result.HasUpdate)
+        try
         {
-            Dispatcher.UIThread.Post(() =>
+            // Check if updates are enabled in settings
+            if (!Settings.CheckForUpdates) return;
+
+            var updateService = (Avalonia.Application.Current as App)?.Services?.GetService(typeof(IUpdateService)) as IUpdateService;
+            if (updateService == null) return;
+
+            var result = await updateService.CheckForUpdatesAsync();
+            if (result.HasUpdate)
             {
-                LatestVersion = result.LatestVersion;
-                _updateReleaseUrl = result.ReleaseUrl;
-                IsUpdateNotificationVisible = true;
-            });
+                Dispatcher.UIThread.Post(() =>
+                {
+                    LatestVersion = result.LatestVersion;
+                    _updateReleaseUrl = result.ReleaseUrl;
+                    IsUpdateNotificationVisible = true;
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't disturb user
+            System.Diagnostics.Debug.WriteLine($"Update check failed: {ex.Message}");
         }
     }
 
@@ -318,6 +330,7 @@ public class MainWindowViewModel : ViewModelBase
         
         Playback.StatusChanged += (s, status) => GlobalStatus = status;
         Files.StatusChanged += (s, status) => GlobalStatus = status;
+        Schedule.StatusChanged += (s, status) => GlobalStatus = status;
     }
     
     private void SetupExtensionStatusHandling()

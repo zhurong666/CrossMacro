@@ -19,6 +19,7 @@ public class DesignMainWindowViewModel : MainWindowViewModel
         new DesignPlaybackViewModel(),
         new DesignFilesViewModel(),
         new DesignTextExpansionViewModel(),
+        new DesignScheduleViewModel(),
         new DesignSettingsViewModel(),
         new MockGlobalHotkeyService(),
         new MockMousePositionProvider())
@@ -97,6 +98,34 @@ public class DesignMainWindowViewModel : MainWindowViewModel
             new HotkeySettings())
         {
         }
+    }
+
+    private class DesignScheduleViewModel : ScheduleViewModel
+    {
+        public DesignScheduleViewModel() : base(
+            new MockSchedulerService(),
+            new MockDialogService())
+        {
+        }
+    }
+
+    private class MockSchedulerService : ISchedulerService
+    {
+        public ObservableCollection<ScheduledTask> Tasks { get; } = new();
+        public bool IsRunning => false;
+#pragma warning disable CS0067 // Event is never used (design-time mock)
+        public event EventHandler<TaskExecutedEventArgs>? TaskExecuted;
+        public event EventHandler<ScheduledTask>? TaskStarting;
+#pragma warning restore CS0067
+        public void AddTask(ScheduledTask task) => Tasks.Add(task);
+        public void RemoveTask(Guid id) { }
+        public void UpdateTask(ScheduledTask task) { }
+        public void SetTaskEnabled(Guid id, bool enabled) { }
+        public void Start() { }
+        public void Stop() { }
+        public Task SaveAsync() => Task.CompletedTask;
+        public Task LoadAsync() => Task.CompletedTask;
+        public void Dispose() { }
     }
 
     private class MockMacroRecorder : IMacroRecorder

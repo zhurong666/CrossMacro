@@ -42,6 +42,8 @@ public partial class App : Application
             return configService.Load();
         });
         
+        services.AddSingleton<ITimeProvider, SystemTimeProvider>();
+
         // GlobalHotkeyService is registered after platform-specific factories below
         services.AddSingleton<IMacroFileManager, MacroFileManager>();
         
@@ -149,10 +151,15 @@ public partial class App : Application
         
         services.AddTransient<IMacroPlayer, MacroPlayer>();
         
+        // Factory for creating new player instances (used by SchedulerService)
+        services.AddSingleton<Func<IMacroPlayer>>(sp => () => sp.GetRequiredService<IMacroPlayer>());
+        
         services.AddSingleton<RecordingViewModel>();
         services.AddSingleton<PlaybackViewModel>();
         services.AddSingleton<FilesViewModel>();
         services.AddSingleton<TextExpansionViewModel>();
+        services.AddSingleton<ISchedulerService, SchedulerService>();
+        services.AddSingleton<ScheduleViewModel>();
         services.AddSingleton<SettingsViewModel>();
         
         services.AddSingleton<MainWindowViewModel>();
