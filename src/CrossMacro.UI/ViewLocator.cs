@@ -23,8 +23,18 @@ public class ViewLocator : IDataTemplate
         if (fullName == null)
             return new TextBlock { Text = "Error: Type has no FullName" };
         
+        // Try standard naming: ViewModel -> View
         var name = fullName.Replace("ViewModel", "View", StringComparison.Ordinal);
         var type = Type.GetType(name);
+
+        // Try Tabs folder with TabView suffix: ViewModels.XxxViewModel -> Views.Tabs.XxxTabView
+        if (type == null)
+        {
+            var tabName = fullName
+                .Replace("ViewModels", "Views.Tabs", StringComparison.Ordinal)
+                .Replace("ViewModel", "TabView", StringComparison.Ordinal);
+            type = Type.GetType(tabName);
+        }
 
         if (type != null)
         {

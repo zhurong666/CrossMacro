@@ -12,6 +12,8 @@ namespace CrossMacro.Infrastructure.Serialization;
 [JsonSerializable(typeof(HotkeySettings))]
 [JsonSerializable(typeof(TextExpansion))]
 [JsonSerializable(typeof(List<TextExpansion>))]
+[JsonSerializable(typeof(ScheduledTask))]
+[JsonSerializable(typeof(List<ScheduledTask>))]
 [JsonSourceGenerationOptions(
     WriteIndented = true,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,

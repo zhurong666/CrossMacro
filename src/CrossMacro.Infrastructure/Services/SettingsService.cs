@@ -7,6 +7,7 @@ using CrossMacro.Core.Services;
 using Serilog;
 using CrossMacro.Core;
 using CrossMacro.Infrastructure.Serialization;
+using CrossMacro.Infrastructure.Helpers;
 
 namespace CrossMacro.Infrastructure.Services;
 
@@ -30,13 +31,7 @@ public class SettingsService : ISettingsService
     {
         if (string.IsNullOrEmpty(configRootPath))
         {
-            // Follow XDG Base Directory specification
-            var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            var configHome = string.IsNullOrEmpty(xdgConfigHome)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config")
-                : xdgConfigHome;
-
-            _configDirectory = Path.Combine(configHome, AppConstants.AppIdentifier);
+            _configDirectory = PathHelper.GetConfigDirectory();
         }
         else
         {

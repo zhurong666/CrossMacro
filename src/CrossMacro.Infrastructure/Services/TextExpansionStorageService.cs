@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CrossMacro.Core.Models;
 using Serilog;
 using CrossMacro.Infrastructure.Serialization;
+using CrossMacro.Infrastructure.Helpers;
 
 namespace CrossMacro.Infrastructure.Services;
 
@@ -26,13 +27,7 @@ public class TextExpansionStorageService : ITextExpansionStorageService
 
     public TextExpansionStorageService()
     {
-        // Follow XDG Base Directory specification
-        var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-        var configHome = string.IsNullOrEmpty(xdgConfigHome)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config")
-            : xdgConfigHome;
-
-        _configDirectory = Path.Combine(configHome, AppName);
+        _configDirectory = PathHelper.GetConfigDirectory();
         _filePath = Path.Combine(_configDirectory, ExpansionsFileName);
         
 

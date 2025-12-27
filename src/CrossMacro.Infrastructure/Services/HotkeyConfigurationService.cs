@@ -6,6 +6,7 @@ using CrossMacro.Core.Models;
 using CrossMacro.Core.Services;
 using Serilog;
 using CrossMacro.Infrastructure.Serialization;
+using CrossMacro.Infrastructure.Helpers;
 
 namespace CrossMacro.Infrastructure.Services;
 
@@ -21,13 +22,7 @@ public class HotkeyConfigurationService : IHotkeyConfigurationService
     {
         if (string.IsNullOrEmpty(configRootPath))
         {
-            var xdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            
-            if (string.IsNullOrEmpty(xdgConfigHome))
-            {
-                xdgConfigHome = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
-            }
-            configRootPath = Path.Combine(xdgConfigHome, "crossmacro");
+            configRootPath = PathHelper.GetConfigDirectory();
         }
 
         if (!Directory.Exists(configRootPath))
