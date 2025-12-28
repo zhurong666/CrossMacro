@@ -7,8 +7,10 @@ public static unsafe class XkbNative
 {
     private const string LibXkbCommon = "libxkbcommon.so.0";
 
+    // xkb_context_flags
     public const int XKB_CONTEXT_NO_FLAGS = 0;
 
+    // xkb_keymap_compile_flags
     public const int XKB_KEYMAP_COMPILE_NO_FLAGS = 0;
     public const uint XKB_MOD_INVALID = 0xffffffff;
 
@@ -77,8 +79,10 @@ public static unsafe class XkbNative
         uint latched_layout,
         uint locked_layout);
 
+    // Helper to get string from utf8 buffer
     public static string GetUtf8String(IntPtr state, uint keycode)
     {
+        // 64 bytes should be way more than enough for any single key
         byte* buffer = stackalloc byte[64];
         int len = xkb_state_key_get_utf8(state, keycode, buffer, 64);
         

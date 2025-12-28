@@ -1,17 +1,18 @@
 using CrossMacro.Infrastructure.Services;
+using CrossMacro.Platform.Linux.Services;
 using Xunit;
 
 namespace CrossMacro.Infrastructure.Tests.Services;
 
-public class KeyboardLayoutServiceTests
+public class LinuxKeyboardLayoutServiceTests
 {
-    private readonly KeyboardLayoutService _service;
+    private readonly LinuxKeyboardLayoutService _service;
 
-    public KeyboardLayoutServiceTests()
+    public LinuxKeyboardLayoutServiceTests()
     {
         // On non-Linux (e.g. CI environments without X) this might log errors but should not throw.
         // We rely on fallback logic which is what we are testing here mainly.
-        _service = new KeyboardLayoutService();
+        _service = new LinuxKeyboardLayoutService();
     }
 
     [Fact]

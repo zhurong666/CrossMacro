@@ -8,9 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using CrossMacro.Core.Ipc;
 using CrossMacro.Daemon.Security;
-using CrossMacro.Native.Evdev;
-using CrossMacro.Native.Linux;
-using CrossMacro.Native.UInput;
+using CrossMacro.Platform.Linux.Native.Evdev;
+using CrossMacro.Platform.Linux.Native.Systemd;
+using CrossMacro.Platform.Linux.Native.UInput;
 using Serilog;
 
 namespace CrossMacro.Daemon;

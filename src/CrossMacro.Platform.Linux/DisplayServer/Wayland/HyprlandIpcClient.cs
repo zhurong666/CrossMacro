@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 
-namespace CrossMacro.Infrastructure.Wayland;
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland;
 
 /// <summary>
 /// Shared IPC client for communicating with Hyprland compositor via Unix socket.

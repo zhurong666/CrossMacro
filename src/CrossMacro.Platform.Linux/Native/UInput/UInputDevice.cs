@@ -23,9 +23,11 @@ namespace CrossMacro.Platform.Linux.Native.UInput
         {
             Log.Information("[UInputDevice] Creating virtual input device (Mouse + Keyboard, Resolution: {Width}x{Height})...", _width, _height);
             
+            // Try opening /dev/uinput
             _fd = UInputNative.open("/dev/uinput", UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
             if (_fd < 0)
             {
+                // Try alternative path
                 _fd = UInputNative.open("/dev/input/uinput", UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
             }
 
@@ -40,28 +42,44 @@ namespace CrossMacro.Platform.Linux.Native.UInput
 
             try 
             {
+                // Enable mouse button events (always needed)
                 EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_KEY);
                 EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_LEFT);
                 EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_RIGHT);
                 EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_MIDDLE);
 
-                EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
-                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
-                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
-                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
-
                 if (_width > 0 && _height > 0)
                 {
+                    // ABSOLUTE MODE
                     EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_ABS);
                     EnableBit(UInputNative.UI_SET_ABSBIT, UInputNative.ABS_X);
                     EnableBit(UInputNative.UI_SET_ABSBIT, UInputNative.ABS_Y);
                     EnableBit(UInputNative.UI_SET_PROPBIT, UInputNative.INPUT_PROP_DIRECT);
+                    
+                    // REL mode (Scroll + Relative Movements even in Absolute mode)
+                    EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
+                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
+                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
+                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
+                    
+                    Log.Information("[UInputDevice] Creating ABSOLUTE mode device (EV_ABS + INPUT_PROP_DIRECT)");
+                }
+                else
+                {
+                    // RELATIVE MODE
+                    EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
+                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
+                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
+                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
+                    Log.Information("[UInputDevice] Creating RELATIVE mode device");
                 }
 
                 for (int keyCode = 1; keyCode <= 255; keyCode++)
                 {
                     EnableBit(UInputNative.UI_SET_KEYBIT, keyCode);
                 }
+
+
 
                 var uidev = new UInputNative.uinput_user_dev
                 {
@@ -82,8 +100,10 @@ namespace CrossMacro.Platform.Linux.Native.UInput
                     uidev.absmax[UInputNative.ABS_Y] = _height;
                 }
 
+                // Write device setup
                 IntPtr size = (IntPtr)Marshal.SizeOf(typeof(UInputNative.uinput_user_dev));
                 
+                // Use the specific write_setup method for uinput_user_dev
                 IntPtr result = UInputNative.write_setup(_fd, ref uidev, size);
                 if (result.ToInt32() < 0)
                 {
@@ -101,6 +121,11 @@ namespace CrossMacro.Platform.Linux.Native.UInput
                 }
                 
                 Log.Information("[UInputDevice] Virtual input device (mouse + keyboard) created successfully.");
+                
+                // Wait for kernel to fully register the device before sending events
+                // This prevents missed clicks during fast playback start
+                Thread.Sleep(100);
+                Log.Debug("[UInputDevice] Kernel stabilization delay complete");
             }
             catch
             {
@@ -141,6 +166,11 @@ namespace CrossMacro.Platform.Linux.Native.UInput
                 var errno = Marshal.GetLastWin32Error();
                 Log.Warning("[UInputDevice] Failed to write event. Errno: {Errno}", errno);
             }
+            else
+            {
+                // Uncomment for verbose logging
+                // Log.Verbose("[UInputDevice] Sent Event: Type={Type}, Code={Code}, Value={Value}", type, code, value);
+            }
         }
 
         private void Emit(ushort type, ushort code, int value)
@@ -161,6 +191,7 @@ namespace CrossMacro.Platform.Linux.Native.UInput
         {
             if (_fd < 0) return;
 
+            // Clamp to screen bounds if resolution is known
             if (_width > 0) x = Math.Clamp(x, 0, _width);
             if (_height > 0) y = Math.Clamp(y, 0, _height);
 
@@ -187,6 +218,11 @@ namespace CrossMacro.Platform.Linux.Native.UInput
             EmitButton(buttonCode, false);
         }
         
+        /// <summary>
+        /// Emit a keyboard key press or release
+        /// </summary>
+        /// <param name="keyCode">Linux input key code (e.g., 30 for KEY_A)</param>
+        /// <param name="pressed">True for key press, false for release</param>
         public void EmitKey(int keyCode, bool pressed)
         {
             SendEvent(UInputNative.EV_KEY, (ushort)keyCode, pressed ? 1 : 0);

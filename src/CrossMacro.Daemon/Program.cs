@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using CrossMacro.Native.Linux;
+using CrossMacro.Platform.Linux.Native.Systemd;
 using Serilog;
 
 namespace CrossMacro.Daemon;

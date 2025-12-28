@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Tmds.DBus;
 
-namespace CrossMacro.Infrastructure.Wayland.DBus;
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland.DBus;
 
 public class KdeTrackerService : IMouseTrackerService
 {

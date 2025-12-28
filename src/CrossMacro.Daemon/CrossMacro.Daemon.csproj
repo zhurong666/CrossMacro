@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\CrossMacro.Native\CrossMacro.Native.csproj" />
+    <ProjectReference Include="..\CrossMacro.Platform.Linux\CrossMacro.Platform.Linux.csproj" />
     <ProjectReference Include="..\CrossMacro.Core\CrossMacro.Core.csproj" />
   </ItemGroup>
 

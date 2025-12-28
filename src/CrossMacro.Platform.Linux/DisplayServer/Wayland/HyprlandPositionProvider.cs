@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using CrossMacro.Core.Services;
 using Serilog;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
 {
     /// <summary>
     /// Mouse position provider for Hyprland compositor using IPC socket

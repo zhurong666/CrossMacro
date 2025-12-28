@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace CrossMacro.Native.Linux;
+namespace CrossMacro.Platform.Linux.Native.Systemd;
 
 /// <summary>
 /// Provides integration with systemd's sd_notify protocol for service status notification.

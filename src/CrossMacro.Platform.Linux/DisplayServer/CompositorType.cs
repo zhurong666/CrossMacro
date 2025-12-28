@@ -1,7 +1,7 @@
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer
 {
     /// <summary>
-    /// Detected Wayland compositor types
+    /// Detected display server / compositor types
     /// </summary>
     public enum CompositorType
     {
@@ -10,7 +10,6 @@ namespace CrossMacro.Infrastructure.Wayland
         HYPRLAND,
         KDE,
         GNOME,
-        SWAY,
         Other
     }
 }

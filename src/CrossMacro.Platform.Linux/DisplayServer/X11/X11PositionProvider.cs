@@ -1,10 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using CrossMacro.Core.Services;
-using CrossMacro.Native.X11;
+using CrossMacro.Platform.Linux.Native.X11;
 using Serilog;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer.X11
 {
     /// <summary>
     /// Mouse position provider for X11 using XQueryPointer

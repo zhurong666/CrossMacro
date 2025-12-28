@@ -113,7 +113,7 @@ public class InputDeviceHelper
             bool isMouse = CheckIsMouse(fd);
             bool isKeyboard = CheckIsKeyboard(fd);
             bool isTouchpad = false;
-            
+
             if (!isMouse)
             {
                 isTouchpad = CheckIsTouchpad(fd);
@@ -123,12 +123,12 @@ public class InputDeviceHelper
                     Log.Debug("[InputDeviceHelper] Device '{Name}' detected as touchpad, treating as mouse", name);
                 }
             }
-            
+
             if (!isMouse)
             {
                 isMouse = IsMouseFromProcDevices(devicePath, name, procDevicesContent);
             }
-            
+
             if (isKeyboard && !isMouse && name.Contains(" Keyboard"))
             {
                 if (BelongsToMouseDevice(name, procDevicesContent))
@@ -137,7 +137,7 @@ public class InputDeviceHelper
                     isKeyboard = false;
                 }
             }
-            
+
             if (isMouse && !isKeyboard && name.Contains(" Mouse"))
             {
                 if (BelongsToKeyboardDevice(name, procDevicesContent))
@@ -197,17 +197,15 @@ public class InputDeviceHelper
 
         bool hasAbsX = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_X);
         bool hasAbsY = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_Y);
-        
+
         bool hasMtX = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_MT_POSITION_X);
         bool hasMtY = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_MT_POSITION_Y);
-        
+
         if (!((hasAbsX && hasAbsY) || (hasMtX && hasMtY)))
             return false;
 
         if (HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_REL))
-        {
             return false;
-        }
 
         return true;
     }
@@ -222,7 +220,7 @@ public class InputDeviceHelper
         
         if (!hasEsc && !hasEnter)
             return false;
-        
+
         bool hasLetterKey = false;
         for (int keyCode = 30; keyCode <= 44; keyCode++)
         {
@@ -280,7 +278,7 @@ public class InputDeviceHelper
                     {
                         nameMatches = true;
                     }
-                    
+
                     if (line.StartsWith("H: Handlers="))
                     {
                         if (line.Contains(eventName) && 
@@ -314,13 +312,11 @@ public class InputDeviceHelper
                 return false;
 
             var devices = procDevicesContent.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-
             var baseName = deviceName.Replace(" Keyboard", "").Trim();
 
             foreach (var device in devices)
             {
                 var lines = device.Split('\n');
-                
                 bool nameMatches = false;
                 bool hasMouseHandler = false;
 
@@ -360,13 +356,10 @@ public class InputDeviceHelper
                 return false;
 
             var devices = procDevicesContent.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-
             var baseName = deviceName.Replace(" Mouse", "").Trim();
-
             foreach (var device in devices)
             {
                 var lines = device.Split('\n');
-                
                 bool nameMatches = false;
                 bool hasKbdHandler = false;
 
@@ -382,7 +375,6 @@ public class InputDeviceHelper
                         hasKbdHandler = true;
                     }
                 }
-
                 if (nameMatches && hasKbdHandler)
                 {
                     return true;
@@ -409,13 +401,12 @@ public class InputDeviceHelper
 
         try
         {
-            var eventName = Path.GetFileName(devicePath); 
+            var eventName = Path.GetFileName(devicePath);
             var sysPath = $"/sys/class/input/{eventName}/device";
             
             if (Directory.Exists(sysPath))
             {
                 var realPath = new DirectoryInfo(sysPath).FullName;
-                
                 if (realPath.Contains("/sys/devices/virtual/"))
                 {
                     Log.Debug("[InputDeviceHelper] Device '{Name}' at {Path} identified as virtual by sysfs path: {SysPath}", 

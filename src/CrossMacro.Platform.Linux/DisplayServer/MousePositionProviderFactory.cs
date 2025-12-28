@@ -1,10 +1,12 @@
 using Serilog;
 using CrossMacro.Core.Services;
+using CrossMacro.Platform.Linux.DisplayServer.Wayland;
+using CrossMacro.Platform.Linux.DisplayServer.X11;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer
 {
     /// <summary>
-    /// Factory for creating the appropriate mouse position provider based on the detected compositor
+    /// Factory for creating the appropriate mouse position provider based on the detected display server
     /// </summary>
     public static class MousePositionProviderFactory
     {

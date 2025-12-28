@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
 using Tmds.DBus;
 
-namespace CrossMacro.Infrastructure.Wayland.DBus;
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland.DBus;
 
 [DBusInterface("org.kde.kwin.Script")]
 public interface IKWinScript : IDBusObject

@@ -9,7 +9,7 @@ public static class EvdevNative
 
     public const ulong EVIOCGNAME_256 = 0x81004506; 
     
-    public const ulong EVIOCGBIT_EV = 0x80044520; 
+    public const ulong EVIOCGBIT_EV = 0x80044520;
     public const ulong EVIOCGBIT_KEY = 0x80044521; 
     public const ulong EVIOCGBIT_REL = 0x80044522; 
     public const ulong EVIOCGBIT_ABS = 0x80044523; 
@@ -30,6 +30,7 @@ public static class EvdevNative
     [DllImport(LibC, SetLastError = true)]
     public static extern int ioctl(int fd, ulong request, IntPtr data);
 
+    // Flags
     public const int O_RDONLY = 0x0000;
     public const int O_NONBLOCK = 0x0800;
 }

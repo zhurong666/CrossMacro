@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
-using CrossMacro.Native.UInput;
+using CrossMacro.Platform.Linux.Native.UInput;
 using CrossMacro.Core.Services.Playback;
 using Serilog;
 
-namespace CrossMacro.Infrastructure.Services.Playback;
+namespace CrossMacro.Platform.Linux.Services.Playback;
 
 /// <summary>
 /// UInput-based event executor implementation

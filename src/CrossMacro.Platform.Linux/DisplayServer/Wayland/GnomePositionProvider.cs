@@ -3,11 +3,11 @@ using System.IO;
 using System.Threading.Tasks;
 using CrossMacro.Core.Services;
 using Serilog;
-using CrossMacro.Infrastructure.Wayland.DBus;
+using CrossMacro.Platform.Linux.DisplayServer.Wayland.DBus;
 
 using Tmds.DBus;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
 {
     [DBusInterface("org.crossmacro.Tracker")]
     public interface IGnomeTrackerService : IDBusObject

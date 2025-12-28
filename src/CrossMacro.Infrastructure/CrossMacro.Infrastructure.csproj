@@ -2,12 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CrossMacro.Core\CrossMacro.Core.csproj" />
-    <ProjectReference Include="..\CrossMacro.Native\CrossMacro.Native.csproj" />
+
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Serilog" Version="4.3.0" />
-    <PackageReference Include="Tmds.DBus" Version="0.22.0" />
   </ItemGroup>
 
   <PropertyGroup>

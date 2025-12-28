@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using CrossMacro.Core.Services;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer
 {
     /// <summary>
     /// Fallback position provider using "Corner Reset" hack

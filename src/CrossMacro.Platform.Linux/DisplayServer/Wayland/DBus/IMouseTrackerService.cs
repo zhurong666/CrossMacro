@@ -1,9 +1,7 @@
 using System.Threading.Tasks;
 using Tmds.DBus;
 
-namespace CrossMacro.Infrastructure.Wayland.DBus;
-
-using Tmds.DBus;
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland.DBus;
 
 [DBusInterface("org.crossmacro.Tracker")]
 public interface IMouseTrackerService : IDBusObject

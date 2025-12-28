@@ -45,6 +45,7 @@ public class MacroFileManager : IMacroFileManager
         await writer.WriteLineAsync($"# Created: {macro.CreatedAt:O}");
         await writer.WriteLineAsync($"# DurationMs: {macro.TotalDurationMs}");
         await writer.WriteLineAsync($"# IsAbsolute: {macro.IsAbsoluteCoordinates}");
+        await writer.WriteLineAsync($"# SkipInitialZero: {macro.SkipInitialZeroZero}");
         await writer.WriteLineAsync("# Format: Cmd,Args...");
         
         // Write Events
@@ -122,6 +123,8 @@ public class MacroFileManager : IMacroFileManager
                     macro.TotalDurationMs = duration;
                 else if (line.StartsWith("# IsAbsolute: ") && bool.TryParse(line.Substring(14).Trim(), out var isAbs))
                     macro.IsAbsoluteCoordinates = isAbs;
+                else if (line.StartsWith("# SkipInitialZero: ") && bool.TryParse(line.Substring(19).Trim(), out var skipZero))
+                    macro.SkipInitialZeroZero = skipZero;
                 
                 continue;
             }

@@ -4,12 +4,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using CrossMacro.Core.Services;
-using CrossMacro.Native.Xkb;
+using CrossMacro.Platform.Linux.Native.Xkb;
 using Serilog;
 
-namespace CrossMacro.Infrastructure.Services;
+namespace CrossMacro.Platform.Linux.Services;
 
-public class KeyboardLayoutService : IKeyboardLayoutService, IDisposable
+public class LinuxKeyboardLayoutService : IKeyboardLayoutService, IDisposable
 {
     // XKB State
     private IntPtr _xkbContext;
@@ -17,7 +17,7 @@ public class KeyboardLayoutService : IKeyboardLayoutService, IDisposable
     private IntPtr _xkbState;
     private readonly Lock _lock = new();
 
-    public KeyboardLayoutService()
+    public LinuxKeyboardLayoutService()
     {
         if (OperatingSystem.IsLinux())
         {
@@ -120,7 +120,7 @@ public class KeyboardLayoutService : IKeyboardLayoutService, IDisposable
 
         try
         {
-            using var ipcClient = new Wayland.HyprlandIpcClient();
+            using var ipcClient = new DisplayServer.Wayland.HyprlandIpcClient();
             if (!ipcClient.IsAvailable)
                 return null;
 

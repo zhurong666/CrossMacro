@@ -1,10 +1,10 @@
 using System;
 using Serilog;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer
 {
     /// <summary>
-    /// Detects the currently running Wayland compositor
+    /// Detects the currently running display server / compositor
     /// </summary>
     public static class CompositorDetector
     {
@@ -39,7 +39,6 @@ namespace CrossMacro.Infrastructure.Wayland
 
             // Detect specific compositor
             var currentDesktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
-            var swaySock = Environment.GetEnvironmentVariable("SWAYSOCK");
 
             return currentDesktop.ToUpperInvariant() switch
             {
@@ -51,9 +50,6 @@ namespace CrossMacro.Infrastructure.Wayland
                 
                 var desktop when desktop.Contains("GNOME") => 
                     LogAndReturn(CompositorType.GNOME, "GNOME"),
-                
-                var desktop when desktop.Contains("SWAY") || !string.IsNullOrEmpty(swaySock) => 
-                    LogAndReturn(CompositorType.SWAY, "Sway"),
                 
                 _ when isWayland => 
                     LogAndReturnUnknown(currentDesktop),

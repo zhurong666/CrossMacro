@@ -3,11 +3,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using CrossMacro.Core.Services;
-using CrossMacro.Infrastructure.Wayland.DBus;
+using CrossMacro.Platform.Linux.DisplayServer.Wayland.DBus;
 using Serilog;
 using Tmds.DBus;
 
-namespace CrossMacro.Infrastructure.Wayland
+namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
 {
     public class KdePositionProvider : IMousePositionProvider
     {

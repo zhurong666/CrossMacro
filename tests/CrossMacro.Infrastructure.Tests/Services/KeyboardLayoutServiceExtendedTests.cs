@@ -1,16 +1,17 @@
 using CrossMacro.Infrastructure.Services;
+using CrossMacro.Platform.Linux.Services;
 using FluentAssertions;
 using Xunit;
 
 namespace CrossMacro.Infrastructure.Tests.Services;
 
-public class KeyboardLayoutServiceExtendedTests
+public class LinuxKeyboardLayoutServiceExtendedTests
 {
-    private readonly KeyboardLayoutService _service;
+    private readonly LinuxKeyboardLayoutService _service;
 
-    public KeyboardLayoutServiceExtendedTests()
+    public LinuxKeyboardLayoutServiceExtendedTests()
     {
-        _service = new KeyboardLayoutService();
+        _service = new LinuxKeyboardLayoutService();
     }
 
     [Theory]
