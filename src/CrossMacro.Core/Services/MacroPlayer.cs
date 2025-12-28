@@ -15,6 +15,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
 {
     private IInputSimulator? _inputSimulator;
     private readonly Func<IInputSimulator>? _inputSimulatorFactory;
+    private readonly InputSimulatorPool? _simulatorPool;
     private CancellationTokenSource? _cts;
     private bool _disposed;
     private readonly IMousePositionProvider? _positionProvider;
@@ -38,7 +39,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
     
     private int _errorCount;
     
-    private const int VirtualDeviceCreationDelayMs = 500;
+    private const int VirtualDeviceCreationDelayMs = 50;
     private const int SmallDelayThresholdMs = 15;
     private const double MinimumDelayMs = 0.5;
     private const double MinEnforcedDelayMs = 1.0;
@@ -49,11 +50,16 @@ public class MacroPlayer : IMacroPlayer, IDisposable
     public int TotalLoops { get; private set; }
     public bool IsWaitingBetweenLoops { get; private set; }
 
-    public MacroPlayer(IMousePositionProvider positionProvider, PlaybackValidator validator, Func<IInputSimulator>? inputSimulatorFactory = null)
+    public MacroPlayer(
+        IMousePositionProvider positionProvider, 
+        PlaybackValidator validator, 
+        Func<IInputSimulator>? inputSimulatorFactory = null,
+        InputSimulatorPool? simulatorPool = null)
     {
         _positionProvider = positionProvider;
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _inputSimulatorFactory = inputSimulatorFactory;
+        _simulatorPool = simulatorPool;
         
         if (_positionProvider != null)
         {
@@ -68,6 +74,11 @@ public class MacroPlayer : IMacroPlayer, IDisposable
             {
                 Log.Warning("[MacroPlayer] Position provider not supported, using relative coordinates");
             }
+        }
+        
+        if (_simulatorPool != null)
+        {
+            Log.Information("[MacroPlayer] Using InputSimulatorPool for zero-delay device acquisition");
         }
     }
     
@@ -144,14 +155,44 @@ public class MacroPlayer : IMacroPlayer, IDisposable
             
             Log.Information("[MacroPlayer] Using screen resolution for virtual device: {Width}x{Height}. If this does not match your actual screen resolution, drift will occur.", _cachedScreenWidth, _cachedScreenHeight);
 
-            if (_inputSimulatorFactory == null)
-                throw new InvalidOperationException("No input simulator factory provided. Ensure IInputSimulator is registered in DI.");
+            // Acquire input simulator - prefer pool for zero-delay, fallback to factory
+            int deviceWidth = macro.IsAbsoluteCoordinates ? _cachedScreenWidth : 0;
+            int deviceHeight = macro.IsAbsoluteCoordinates ? _cachedScreenHeight : 0;
             
-            _inputSimulator = _inputSimulatorFactory();
-            _inputSimulator.Initialize(_cachedScreenWidth, _cachedScreenHeight);
-            Log.Information("[MacroPlayer] Input simulator created: {ProviderName}", _inputSimulator.ProviderName);
-            
-            await Task.Delay(VirtualDeviceCreationDelayMs, _cts.Token);
+            if (_simulatorPool != null)
+            {
+                // Use pre-warmed device from pool
+                _inputSimulator = _simulatorPool.Acquire(deviceWidth, deviceHeight);
+                Log.Information("[MacroPlayer] Acquired device from pool: {ProviderName}", _inputSimulator.ProviderName);
+                
+                // Small stabilization delay to ensure device is ready for first events
+                await Task.Delay(20, _cts.Token);
+            }
+            else if (_inputSimulatorFactory != null)
+            {
+                // Fallback to factory with delay
+                _inputSimulator = _inputSimulatorFactory();
+                
+                if (macro.IsAbsoluteCoordinates)
+                {
+                    _inputSimulator.Initialize(_cachedScreenWidth, _cachedScreenHeight);
+                    Log.Information("[MacroPlayer] Input simulator created with absolute support: {ProviderName} ({Width}x{Height})", 
+                        _inputSimulator.ProviderName, _cachedScreenWidth, _cachedScreenHeight);
+                }
+                else
+                {
+                    _inputSimulator.Initialize(0, 0); // Pure relative device
+                    Log.Information("[MacroPlayer] Input simulator created as relative-only device: {ProviderName}", 
+                        _inputSimulator.ProviderName);
+                }
+                
+                // Only delay when using factory (device not pre-warmed)
+                await Task.Delay(VirtualDeviceCreationDelayMs, _cts.Token);
+            }
+            else
+            {
+                throw new InvalidOperationException("No input simulator pool or factory provided. Ensure IInputSimulator is registered in DI.");
+            }
             
             if (_positionProvider != null && _positionProvider.IsSupported)
             {
@@ -180,32 +221,56 @@ public class MacroPlayer : IMacroPlayer, IDisposable
             
             if (firstMouseEvent != null)
             {
-                if (_cachedScreenWidth > 0 && _cachedScreenHeight > 0)
+                // Only move to start position for absolute coordinate macros
+                if (macro.IsAbsoluteCoordinates)
                 {
-                    int startX = Math.Clamp(firstMouseEvent.X, 0, _cachedScreenWidth);
-                    int startY = Math.Clamp(firstMouseEvent.Y, 0, _cachedScreenHeight);
-                    
-                    Log.Information("[MacroPlayer] Moving to start position: ({X}, {Y})", startX, startY);
-                    _inputSimulator!.MoveAbsolute(startX, startY);
-                    _currentX = startX;
-                    _currentY = startY;
-                    _positionInitialized = true;
+                    if (_cachedScreenWidth > 0 && _cachedScreenHeight > 0)
+                    {
+                        int startX = Math.Clamp(firstMouseEvent.X, 0, _cachedScreenWidth);
+                        int startY = Math.Clamp(firstMouseEvent.Y, 0, _cachedScreenHeight);
+                        
+                        Log.Information("[MacroPlayer] Moving to start position: ({X}, {Y})", startX, startY);
+                        _inputSimulator!.MoveAbsolute(startX, startY);
+                        _currentX = startX;
+                        _currentY = startY;
+                        _positionInitialized = true;
+                    }
+                    else
+                    {
+                        Log.Information("[MacroPlayer] Blind Mode: Performing Corner Reset (Force 0,0) to sync start position...");
+                        
+                        for (int r = 0; r < 5; r++)
+                        {
+                            _inputSimulator!.MoveRelative(-10000, -10000); 
+                            await Task.Delay(20, _cts.Token);
+                        }
+                        
+                        await Task.Delay(100, _cts.Token); 
+                        
+                        _currentX = 0;
+                        _currentY = 0;
+                        _positionInitialized = true;
+                    }
                 }
                 else
                 {
-                    Log.Information("[MacroPlayer] Blind Mode: Performing Corner Reset (Force 0,0) to sync start position...");
-                    
-                    for (int r = 0; r < 5; r++)
+                    // Relative mode: check if we need Corner Reset
+                    if (!macro.SkipInitialZeroZero)
                     {
-                        _inputSimulator!.MoveRelative(-10000, -10000); 
-                        await Task.Delay(20, _cts.Token);
+                        // Recording did Corner Reset, so we should too
+                        Log.Information("[MacroPlayer] Relative mode: Performing Corner Reset (0,0) to match recording start...");
+                        _inputSimulator!.MoveRelative(-20000, -20000); // Single large move to corner
+                        await Task.Delay(10, _cts.Token); // Reduced from 50ms
+                        _currentX = 0;
+                        _currentY = 0;
+                        _positionInitialized = true;
                     }
-                    
-                    await Task.Delay(100, _cts.Token); 
-                    
-                    _currentX = 0;
-                    _currentY = 0;
-                    _positionInitialized = true;
+                    else
+                    {
+                        // Recording started from wherever cursor was, so do we
+                        Log.Information("[MacroPlayer] Relative mode: starting from current position (recording skipped Corner Reset)");
+                        _positionInitialized = true;
+                    }
                 }
             }
             else
@@ -215,11 +280,44 @@ public class MacroPlayer : IMacroPlayer, IDisposable
             
             Log.Information("[MacroPlayer] Loop settings: Loop={Loop}, RepeatCount={Count}, Infinite={Infinite}", options.Loop, repeatCount, infiniteLoop);
             
+            // Stabilization delay before first playback to ensure device is fully ready
+            // This prevents the first few events from being missed
+            await Task.Delay(50, _cts.Token);
+            
             int i = 0;
             while ((infiniteLoop || i < repeatCount) && !_cts.Token.IsCancellationRequested)
             {
                 CurrentLoop = i + 1;
                 Log.Information("[MacroPlayer] Starting playback iteration {Iteration}", i + 1);
+                
+                // For subsequent iterations, reset to start position again
+                if (i > 0)
+                {
+                    if (macro.IsAbsoluteCoordinates && _cachedScreenWidth > 0 && _cachedScreenHeight > 0)
+                    {
+                        // Absolute mode: move to first event's position
+                        var firstEvent = macro.Events.FirstOrDefault(e => e.Type == EventType.MouseMove);
+                        if (firstEvent != null)
+                        {
+                            int startX = Math.Clamp(firstEvent.X, 0, _cachedScreenWidth);
+                            int startY = Math.Clamp(firstEvent.Y, 0, _cachedScreenHeight);
+                            _inputSimulator!.MoveAbsolute(startX, startY);
+                            _currentX = startX;
+                            _currentY = startY;
+                        }
+                    }
+                    else if (!macro.IsAbsoluteCoordinates && !macro.SkipInitialZeroZero)
+                    {
+                        // Relative mode with Corner Reset: go to 0,0 again
+                        Log.Information("[MacroPlayer] Iteration {I}: Performing Corner Reset (0,0)", i + 1);
+                        _inputSimulator!.MoveRelative(-20000, -20000);
+                        await Task.Delay(10, _cts.Token); // Reduced from 50ms
+                        _currentX = 0;
+                        _currentY = 0;
+                    }
+                    // If SkipInitialZeroZero=true, just continue from current position
+                }
+                
                 await PlayOnceAsync(macro, options.SpeedMultiplier, _cts.Token);
                 
                 bool hasNextIteration = infiniteLoop || i < repeatCount - 1;
@@ -229,7 +327,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                 {
                     int delayMs = Math.Max(10, options.RepeatDelayMs);
                     IsWaitingBetweenLoops = options.RepeatDelayMs > 0;
-                    await Task.Delay(delayMs, _cts.Token);
+                    await WaitWithPauseCheckAsync(delayMs, _cts.Token);
                     IsWaitingBetweenLoops = false;
                 }
                 
@@ -248,8 +346,23 @@ public class MacroPlayer : IMacroPlayer, IDisposable
             CurrentLoop = 0;
             TotalLoops = 0;
             IsWaitingBetweenLoops = false;
-            _inputSimulator?.Dispose();
-            _inputSimulator = null;
+            
+            // Return device to pool for warming up replacement, or dispose if no pool
+            if (_inputSimulator != null)
+            {
+                if (_simulatorPool != null)
+                {
+                    int deviceWidth = macro.IsAbsoluteCoordinates ? _cachedScreenWidth : 0;
+                    int deviceHeight = macro.IsAbsoluteCoordinates ? _cachedScreenHeight : 0;
+                    _simulatorPool.Release(_inputSimulator, deviceWidth, deviceHeight);
+                }
+                else
+                {
+                    _inputSimulator.Dispose();
+                }
+                _inputSimulator = null;
+            }
+            
             _cts?.Dispose();
             _cts = null;
             Log.Information("[MacroPlayer] ========== PLAYBACK ENDED ==========");
@@ -283,6 +396,62 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         }
     }
 
+    /// <summary>
+    /// Waits for the specified delay while checking for pause state.
+    /// If paused, immediately stops waiting and blocks until resumed.
+    /// </summary>
+    private async Task WaitWithPauseCheckAsync(int delayMs, CancellationToken cancellationToken)
+    {
+        const int checkIntervalMs = 50;
+        
+        if (delayMs <= 0)
+            return;
+        
+        int remaining = delayMs;
+        var sw = Stopwatch.StartNew();
+        
+        while (remaining > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            // Check for pause state
+            if (_isPaused)
+            {
+                sw.Stop();
+                Log.Debug("[MacroPlayer] Pause detected during delay, {Remaining}ms remaining", remaining);
+                await Task.Run(() => _pauseEvent.Wait(cancellationToken), cancellationToken);
+                sw.Restart();
+                Log.Debug("[MacroPlayer] Resumed, continuing with {Remaining}ms delay", remaining);
+            }
+            
+            int waitTime = Math.Min(remaining, checkIntervalMs);
+            
+            if (waitTime > SmallDelayThresholdMs)
+            {
+                await Task.Delay(waitTime, cancellationToken);
+            }
+            else if (waitTime > 0)
+            {
+                long startTicks = Stopwatch.GetTimestamp();
+                long targetTicks = startTicks + (long)(waitTime * Stopwatch.Frequency / 1000.0);
+                
+                while (Stopwatch.GetTimestamp() < targetTicks)
+                {
+                    if (waitTime > 1)
+                        Thread.SpinWait(100);
+                    else
+                        Thread.Yield();
+                    
+                    // Also check for pause during spin-wait for responsiveness
+                    if (_isPaused)
+                        break;
+                }
+            }
+            
+            remaining -= waitTime;
+        }
+    }
+
     private async Task PlayOnceAsync(MacroSequence macro, double speedMultiplier, CancellationToken cancellationToken)
     {
         if (_inputSimulator == null)
@@ -308,23 +477,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                     adjustedDelay = MinEnforcedDelayMs;
                 }
                 
-                if (adjustedDelay > SmallDelayThresholdMs)
-                {
-                    await Task.Delay((int)adjustedDelay, cancellationToken);
-                }
-                else if (adjustedDelay > 0)
-                {
-                    long startTicks = Stopwatch.GetTimestamp();
-                    long targetTicks = startTicks + (long)(adjustedDelay * Stopwatch.Frequency / 1000.0);
-                    
-                    while (Stopwatch.GetTimestamp() < targetTicks)
-                    {
-                        if (adjustedDelay > 1)
-                            Thread.SpinWait(100);
-                        else
-                            Thread.Yield();
-                    }
-                }
+                await WaitWithPauseCheckAsync((int)adjustedDelay, cancellationToken);
             }
             
             try
@@ -374,57 +527,38 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                 break;
                 
             case EventType.MouseMove:
-                bool canPlayAbsolute = (_positionProvider != null && _positionProvider.IsSupported) || (_cachedScreenWidth > 0 && _cachedScreenHeight > 0);
-
-                if (canPlayAbsolute)
+                if (isRecordedAbsolute)
                 {
-                    int targetAbsX, targetAbsY;
-
-                    if (isRecordedAbsolute)
+                    bool canPlayAbsolute = (_positionProvider != null && _positionProvider.IsSupported) 
+                                        || (_cachedScreenWidth > 0 && _cachedScreenHeight > 0);
+                    
+                    if (canPlayAbsolute)
                     {
-                        targetAbsX = ev.X;
-                        targetAbsY = ev.Y;
-                    }
-                    else
-                    {
-                        targetAbsX = _currentX + ev.X;
-                        targetAbsY = _currentY + ev.Y;
-                    }
-
-                    if (_x11SetPositionMethod != null)
-                    {
-                        _x11SetPositionMethod.Invoke(_positionProvider, new object[] { targetAbsX, targetAbsY });
-                    }
-                    else
-                    {
-                        _inputSimulator.MoveAbsolute(targetAbsX, targetAbsY);
-                    }
-
-                    _currentX = targetAbsX;
-                    _currentY = targetAbsY;
-                }
-                else
-                {
-                    int dx, dy;
-
-                    if (isRecordedAbsolute)
-                    {
-                        dx = ev.X - _currentX;
-                        dy = ev.Y - _currentY;
-                        
+                        if (_x11SetPositionMethod != null)
+                        {
+                            _x11SetPositionMethod.Invoke(_positionProvider, new object[] { ev.X, ev.Y });
+                        }
+                        else
+                        {
+                            _inputSimulator.MoveAbsolute(ev.X, ev.Y);
+                        }
                         _currentX = ev.X;
                         _currentY = ev.Y;
                     }
                     else
                     {
-                        dx = ev.X;
-                        dy = ev.Y;
-                        
-                        _currentX += dx;
-                        _currentY += dy;
+                        int dx = ev.X - _currentX;
+                        int dy = ev.Y - _currentY;
+                        _inputSimulator.MoveRelative(dx, dy);
+                        _currentX = ev.X;
+                        _currentY = ev.Y;
                     }
-
-                    _inputSimulator.MoveRelative(dx, dy);
+                }
+                else
+                {
+                    _inputSimulator.MoveRelative(ev.X, ev.Y);
+                    _currentX += ev.X;
+                    _currentY += ev.Y;
                 }
                 break;
                 
@@ -475,7 +609,12 @@ public class MacroPlayer : IMacroPlayer, IDisposable
     
     public void Stop()
     {
+        Log.Information("[MacroPlayer] Stop requested");
         ReleaseAllButtons();
+        
+        // If paused, unblock the wait so cancellation can take effect immediately
+        _pauseEvent.Set();
+        
         _cts?.Cancel();
     }
     
