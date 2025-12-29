@@ -29,7 +29,6 @@
                                   Margin="0,0,12,0"/>
                         <Button Grid.Column="2" 
                                Command="{Binding AddTaskCommand}"
-                               Classes="icon"
                                Background="#334155"
                                CornerRadius="6"
                                Padding="8,4"
@@ -93,7 +92,6 @@
                                         
                                         <!-- Edit Button -->
                                         <Button Grid.Column="2"
-                                                Classes="icon"
                                                 Background="Transparent"
                                                 Padding="6"
                                                 Command="{Binding #TaskListBorder.((vm:ScheduleViewModel)DataContext).SelectTaskCommand}"
@@ -110,7 +108,6 @@
                                         
                                         <!-- Delete Button -->
                                         <Button Grid.Column="3"
-                                                Classes="icon"
                                                 Background="Transparent"
                                                 Padding="6"
                                                 Command="{Binding #TaskListBorder.((vm:ScheduleViewModel)DataContext).RemoveTaskCommand}"
@@ -149,7 +146,7 @@
                     <!-- Task Name -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="Name" FontSize="12" Opacity="0.7"/>
-                        <TextBox Text="{Binding SelectedTask.Name, Mode=TwoWay}" 
+                        <TextBox Text="{Binding SelectedTask.Name, Mode=TwoWay, FallbackValue=''}" 
                                 Watermark="Task name"/>
                     </StackPanel>
                     
@@ -158,12 +155,12 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Classes="label" Text="Playback Speed"/>
                             <TextBlock Grid.Column="1" 
-                                      Text="{Binding SelectedTask.PlaybackSpeed, StringFormat='{}{0:0.0}x'}" 
+                                      Text="{Binding SelectedTask.PlaybackSpeed, StringFormat='{}{0:0.0}x', FallbackValue='1.0x'}" 
                                       FontWeight="Medium"
                                       FontSize="16"
                                       Foreground="{DynamicResource SystemAccentColor}"/>
                         </Grid>
-                        <Slider Value="{Binding SelectedTask.PlaybackSpeed, Mode=TwoWay}"
+                        <Slider Value="{Binding SelectedTask.PlaybackSpeed, Mode=TwoWay, FallbackValue=1.0}"
                                Minimum="0.1" 
                                Maximum="10.0" 
                                TickFrequency="0.1"
@@ -179,10 +176,10 @@
                                    CornerRadius="6" 
                                    Padding="12,8"
                                    Margin="0,0,8,0">
-                                <TextBlock Text="{Binding SelectedMacroFileName}" 
+                                <TextBlock Text="{Binding SelectedMacroFileName, FallbackValue='No file selected'}" 
                                           VerticalAlignment="Center"
                                           TextTrimming="CharacterEllipsis"
-                                          ToolTip.Tip="{Binding SelectedMacroFilePath}"/>
+                                          ToolTip.Tip="{Binding SelectedMacroFilePath, FallbackValue=''}"/>
                             </Border>
                             <Button Grid.Column="1" 
                                    Content="📂 Browse" 
@@ -208,12 +205,11 @@
             <!-- Interval Settings -->
             <Border Background="#1E293B" 
                    CornerRadius="12" 
-                   Padding="16"
-                   IsVisible="{Binding IsIntervalSelected}">
+                   Padding="16">
                 <Border.IsVisible>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">
-                        <Binding Path="HasSelectedTask"/>
-                        <Binding Path="IsIntervalSelected"/>
+                        <Binding Path="HasSelectedTask" FallbackValue="False"/>
+                        <Binding Path="IsIntervalSelected" FallbackValue="False"/>
                     </MultiBinding>
                 </Border.IsVisible>
                 <StackPanel Spacing="12">
@@ -223,10 +219,10 @@
                               FontSize="12"/>
                     <TextBlock Text="Run macro every:" FontSize="12" Opacity="0.7"/>
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                        <NumericUpDown Value="{Binding SelectedTask.IntervalValue, Mode=TwoWay}"
+                        <NumericUpDown Value="{Binding SelectedTask.IntervalValue, Mode=TwoWay, FallbackValue=1}"
                                       Minimum="1" Maximum="9999"
                                       Width="120"/>
-                        <ComboBox SelectedIndex="{Binding SelectedTask.IntervalUnit, Mode=TwoWay}"
+                        <ComboBox SelectedIndex="{Binding SelectedTask.IntervalUnit, Mode=TwoWay, FallbackValue=0}"
                                  Width="120">
                             <ComboBoxItem Content="Seconds"/>
                             <ComboBoxItem Content="Minutes"/>
@@ -253,9 +249,9 @@
                               FontSize="12"/>
                     <TextBlock Text="Run macro at:" FontSize="12" Opacity="0.7"/>
                     <StackPanel Orientation="Vertical" Spacing="12" HorizontalAlignment="Left">
-                        <DatePicker SelectedDate="{Binding ScheduledDate, Mode=TwoWay}"
+                        <DatePicker SelectedDate="{Binding ScheduledDate, Mode=TwoWay, FallbackValue={x:Null}}"
                                    HorizontalAlignment="Stretch"/>
-                        <TimePicker SelectedTime="{Binding ScheduledTime, Mode=TwoWay}"
+                        <TimePicker SelectedTime="{Binding ScheduledTime, Mode=TwoWay, FallbackValue={x:Null}}"
                                    UseSeconds="True"
                                    HorizontalAlignment="Stretch"/>
                     </StackPanel>
@@ -277,17 +273,17 @@
                     <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Last Run:" FontSize="12" Opacity="0.7"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" 
-                                  Text="{Binding SelectedTask.LastRunTime, StringFormat='{}{0:G}', TargetNullValue='Never'}" 
+                                  Text="{Binding SelectedTask.LastRunTime, StringFormat='{}{0:G}', TargetNullValue='Never', FallbackValue='Never'}" 
                                   FontSize="12"/>
                         
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Next Run:" FontSize="12" Opacity="0.7"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" 
-                                  Text="{Binding SelectedTask.NextRunTime, StringFormat='{}{0:G}', TargetNullValue='Not scheduled'}" 
+                                  Text="{Binding SelectedTask.NextRunTime, StringFormat='{}{0:G}', TargetNullValue='Not scheduled', FallbackValue='Not scheduled'}" 
                                   FontSize="12"/>
                         
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Status:" FontSize="12" Opacity="0.7"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" 
-                                  Text="{Binding SelectedTask.LastStatus, TargetNullValue='—'}" 
+                                  Text="{Binding SelectedTask.LastStatus, TargetNullValue='—', FallbackValue='—'}" 
                                   FontSize="12"/>
                     </Grid>
                 </StackPanel>
