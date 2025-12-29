@@ -9,11 +9,11 @@ A modern mouse and keyboard macro recording and playback application for Linux (
 
 ## Screenshots
 
-| Recording | Playback | Files |
+| Recording | Playback | Text Expansion |
 | :---: | :---: | :---: |
-| ![Recording](screenshots/recording-tab.png) | ![Playback](screenshots/playback-tab.png) | ![Files](screenshots/files-tab.png) |
-| **Text Expansion** | **Settings** | |
-| ![Text Expansion](screenshots/text-expansion-tab.png) | ![Settings](screenshots/settings-tab.png) | |
+| ![Recording](screenshots/recording-tab.png) | ![Playback](screenshots/playback-tab.png) | ![Text Expansion](screenshots/text-expansion-tab.png) |
+| **Shortcuts** | **Scheduled Tasks** | **Settings** |
+| ![Shortcuts](screenshots/shortcuts-tab.png) | ![Scheduled Tasks](screenshots/schedule-tab.png) | ![Settings](screenshots/settings-tab.png) |
 
 ## 🖥️ Supported Platforms
 
