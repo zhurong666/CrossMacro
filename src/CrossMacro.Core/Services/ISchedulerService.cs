@@ -56,6 +56,7 @@ public interface ISchedulerService : IDisposable
     /// Enables or disables a task
     /// </summary>
     void SetTaskEnabled(Guid id, bool enabled);
+    Task RunTaskAsync(Guid taskId);
     
     /// <summary>
     /// Starts the scheduler

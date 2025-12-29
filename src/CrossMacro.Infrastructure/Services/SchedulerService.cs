@@ -120,6 +120,20 @@ public class SchedulerService : ISchedulerService
         }
     }
     
+    public async Task RunTaskAsync(Guid taskId)
+    {
+        ScheduledTask? task;
+        lock (_lock)
+        {
+            task = Tasks.FirstOrDefault(t => t.Id == taskId);
+        }
+        
+        if (task != null)
+        {
+            await ExecuteTaskAsync(task);
+        }
+    }
+
     public void Start()
     {
         if (_isRunning) return;

@@ -153,6 +153,7 @@ public class DesignMainWindowViewModel : MainWindowViewModel
         public void SetTaskEnabled(Guid id, bool enabled) { }
         public void Start() { }
         public void Stop() { }
+        public Task RunTaskAsync(Guid taskId) => Task.CompletedTask;
         public Task SaveAsync() => Task.CompletedTask;
         public Task LoadAsync() => Task.CompletedTask;
         public void Dispose() { }
