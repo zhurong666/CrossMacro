@@ -91,17 +91,17 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void EnableTextExpansion_WhenChanged_SavesSettingsAndTogglesService()
+    public async Task EnableTextExpansion_WhenChanged_SavesSettingsAndTogglesService()
     {
         // Act - Enable
         _viewModel.EnableTextExpansion = true;
 
         // Assert - Enable
         _settingsService.Current.EnableTextExpansion.Should().BeTrue();
-        _settingsService.Received(1).SaveAsync();
+        _ = _settingsService.Received(1).SaveAsync();
         
-        // Wait for async task
-        System.Threading.Thread.Sleep(50);
+        // Wait for async task with polling
+        await WaitFor(() => _textExpansionService.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "Start"));
         _textExpansionService.Received(1).Start();
 
         // Act - Disable
@@ -109,8 +109,18 @@ public class SettingsViewModelTests
         
         // Assert - Disable
         _settingsService.Current.EnableTextExpansion.Should().BeFalse();
-        System.Threading.Thread.Sleep(50);
+        await WaitFor(() => _textExpansionService.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "Stop"));
         _textExpansionService.Received(1).Stop();
+    }
+
+    private static async Task WaitFor(Func<bool> condition, int timeoutMs = 500)
+    {
+        var start = DateTime.UtcNow;
+        while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+        {
+            if (condition()) return;
+            await Task.Delay(10);
+        }
     }
 
     [Fact]

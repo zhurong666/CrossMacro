@@ -101,4 +101,83 @@ public class MacroRecorderTests
         // Assert
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public async Task StartRecordingAsync_CapturesEvents_WhenInputReceived()
+    {
+        // Arrange
+        var capture = Substitute.For<IInputCapture>();
+        capture.GetAvailableDevices().Returns(new List<InputDeviceInfo>
+        {
+            new InputDeviceInfo { IsMouse = true, Name = "Mouse" },
+            new InputDeviceInfo { IsKeyboard = true, Name = "Keyboard" }
+        });
+
+        // Use a factory that returns our mock
+        var recorder = new MacroRecorder(_positionProvider, inputCaptureFactory: () => capture);
+        _positionProvider.GetAbsolutePositionAsync().Returns(Task.FromResult<(int X, int Y)?>( (0, 0) ));
+        
+        var receivedEvents = new List<MacroEvent>();
+        recorder.EventRecorded += (s, e) => receivedEvents.Add(e);
+
+        // Act
+        await recorder.StartRecordingAsync(true, true);
+        
+        // Simulate input
+        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
+            this, 
+            new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 1 }); // Key Press A
+
+        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
+            this, 
+            new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 0 }); // Key Release A
+
+        recorder.StopRecording();
+
+        // Assert
+        receivedEvents.Should().HaveCount(2);
+        receivedEvents[0].Type.Should().Be(EventType.KeyPress);
+        receivedEvents[0].KeyCode.Should().Be(30);
+        receivedEvents[1].Type.Should().Be(EventType.KeyRelease);
+        
+        var recording = recorder.GetCurrentRecording();
+        recording.Should().NotBeNull();
+        recording!.Events.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task StartRecordingAsync_IgnoresKeys_WhenSpecified()
+    {
+        // Arrange
+        var capture = Substitute.For<IInputCapture>();
+        capture.GetAvailableDevices().Returns(new List<InputDeviceInfo>
+        {
+            new InputDeviceInfo { IsMouse = true, Name = "Mouse" },
+            new InputDeviceInfo { IsKeyboard = true, Name = "Keyboard" }
+        });
+
+        var recorder = new MacroRecorder(_positionProvider, inputCaptureFactory: () => capture);
+        _positionProvider.GetAbsolutePositionAsync().Returns(Task.FromResult<(int X, int Y)?>( (0, 0) ));
+        
+        var receivedEvents = new List<MacroEvent>();
+        recorder.EventRecorded += (s, e) => receivedEvents.Add(e);
+
+        // Act
+        // Ignore key code 30 (A)
+        await recorder.StartRecordingAsync(true, true, ignoredKeys: new[] { 30 });
+        
+        // Simulate ignored key
+        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
+            this, new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 1 });
+
+        // Simulate allowed key (31 = S)
+        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
+            this, new InputCaptureEventArgs { Type = InputEventType.Key, Code = 31, Value = 1 });
+
+        recorder.StopRecording();
+
+        // Assert
+        receivedEvents.Should().HaveCount(1);
+        receivedEvents[0].KeyCode.Should().Be(31);
+    }
 }

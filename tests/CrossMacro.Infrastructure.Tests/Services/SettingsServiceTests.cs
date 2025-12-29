@@ -146,14 +146,34 @@ public class SettingsServiceTests : IDisposable
     [Fact]
     public void Load_WhenFileCorrupted_ReturnsDefaults()
     {
-        // This test ensures graceful degradation
-        // The service should return defaults if file is corrupted
+        // Arrange
         var service = new SettingsService(_tempPath);
-        
-        // Act - just verify it doesn't throw
-        var act = () => service.Load();
+        // Ensure file exists but with garbage content
+        Directory.CreateDirectory(_tempPath);
+        File.WriteAllText(Path.Combine(_tempPath, "settings.json"), "{ invalid_json }");
+
+        // Act
+        var result = service.Load();
 
         // Assert
-        act.Should().NotThrow();
+        result.Should().NotBeNull();
+        // Defaults check (assuming defaults are specific values, e.g. PlaybackSpeed = 1.0)
+        result.PlaybackSpeed.Should().Be(1.0); 
+    }
+
+    [Fact]
+    public async Task LoadAsync_WhenFileCorrupted_ReturnsDefaults()
+    {
+        // Arrange
+        var service = new SettingsService(_tempPath);
+        Directory.CreateDirectory(_tempPath);
+        await File.WriteAllTextAsync(Path.Combine(_tempPath, "settings.json"), "NOT JSON AT ALL");
+
+        // Act
+        var result = await service.LoadAsync();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.PlaybackSpeed.Should().Be(1.0);
     }
 }

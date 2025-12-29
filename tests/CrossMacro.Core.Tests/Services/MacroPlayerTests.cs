@@ -145,4 +145,40 @@ public class MacroPlayerTests
         // Assert
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public async Task PlayAsync_ExecutesEvents_OnInputSimulator()
+    {
+        // Arrange
+        var simulator = Substitute.For<IInputSimulator>();
+        simulator.ProviderName.Returns("MockSimulator");
+        
+        var player = new MacroPlayer(
+            _positionProvider, 
+            _validator, 
+            inputSimulatorFactory: () => simulator);
+
+        var macro = new MacroSequence
+        {
+            Events = new List<MacroEvent>
+            {
+                new() { Type = EventType.MouseMove, X = 100, Y = 100 },
+                new() { Type = EventType.ButtonPress, Button = MouseButton.Left },
+                new() { Type = EventType.KeyPress, KeyCode = 30 }
+            }
+        };
+
+        // Act
+        await player.PlayAsync(macro);
+
+        // Assert
+        // Verify MoveRelative (default mode)
+        simulator.Received().MoveRelative(Arg.Any<int>(), Arg.Any<int>());
+        
+        // Verify MouseButton
+        simulator.Received().MouseButton(Arg.Any<int>(), true);
+        
+        // Verify KeyPress
+        simulator.Received().KeyPress(30, true);
+    }
 }

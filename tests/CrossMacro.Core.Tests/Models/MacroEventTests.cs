@@ -12,7 +12,7 @@ public class MacroEventTests
         var ev = new MacroEvent();
 
         // Assert
-        ev.Type.Should().Be(EventType.ButtonPress); // Default enum value
+        ev.Type.Should().Be(EventType.None); // Default enum value
         ev.X.Should().Be(0);
         ev.Y.Should().Be(0);
         ev.Button.Should().Be(MouseButton.None);
