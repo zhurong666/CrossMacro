@@ -277,7 +277,7 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                 {
                     int driftX = Math.Abs(actualPos.Value.X - _cachedX);
                     int driftY = Math.Abs(actualPos.Value.Y - _cachedY);
-                    int totalDrift = Math.Max(driftX, driftY);
+                    int totalDrift = driftX + driftY;
                     
                     if (totalDrift > DriftThresholdPx)
                     {

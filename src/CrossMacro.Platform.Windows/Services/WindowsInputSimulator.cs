@@ -9,6 +9,12 @@ public class WindowsInputSimulator : IInputSimulator
 {
     private int _screenWidth;
     private int _screenHeight;
+    
+    // ThreadStatic ensures each thread has its own buffer - thread-safe without locking
+    [ThreadStatic]
+    private static INPUT[]? _inputBuffer;
+    
+    private static INPUT[] InputBuffer => _inputBuffer ??= new INPUT[1];
 
     public string ProviderName => "Windows SendInput";
     public bool IsSupported => OperatingSystem.IsWindows();
@@ -180,8 +186,10 @@ public class WindowsInputSimulator : IInputSimulator
         return (val * 65535) / max;
     }
 
-    private void SendInput(INPUT input)
+    private static void SendInput(INPUT input)
     {
-        User32.SendInput(1, new[] { input }, INPUT.Size);
+        var buffer = InputBuffer;
+        buffer[0] = input;
+        User32.SendInput(1, buffer, INPUT.Size);
     }
 }

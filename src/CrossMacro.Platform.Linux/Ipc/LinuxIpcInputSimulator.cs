@@ -91,34 +91,54 @@ public class LinuxIpcInputSimulator : IInputSimulator
 
     public void MoveAbsolute(int x, int y)
     {
-        _client.SimulateEvent(EV_ABS, ABS_X, x);
-        _client.SimulateEvent(EV_ABS, ABS_Y, y);
-        Sync();
+        Span<(ushort, ushort, int)> events = stackalloc (ushort, ushort, int)[]
+        {
+            (EV_ABS, ABS_X, x),
+            (EV_ABS, ABS_Y, y),
+            (EV_SYN, SYN_REPORT, 0)
+        };
+        _client.SimulateEvents(events);
     }
 
     public void MoveRelative(int dx, int dy)
     {
-        _client.SimulateEvent(EV_REL, REL_X, dx);
-        _client.SimulateEvent(EV_REL, REL_Y, dy);
-        Sync();
+        Span<(ushort, ushort, int)> events = stackalloc (ushort, ushort, int)[]
+        {
+            (EV_REL, REL_X, dx),
+            (EV_REL, REL_Y, dy),
+            (EV_SYN, SYN_REPORT, 0)
+        };
+        _client.SimulateEvents(events);
     }
 
     public void MouseButton(int button, bool pressed)
     {
-        _client.SimulateEvent(EV_KEY, (ushort)button, pressed ? 1 : 0);
-        Sync();
+        Span<(ushort, ushort, int)> events = stackalloc (ushort, ushort, int)[]
+        {
+            (EV_KEY, (ushort)button, pressed ? 1 : 0),
+            (EV_SYN, SYN_REPORT, 0)
+        };
+        _client.SimulateEvents(events);
     }
 
     public void Scroll(int delta)
     {
-         _client.SimulateEvent(EV_REL, REL_WHEEL, delta);
-         Sync();
+         Span<(ushort, ushort, int)> events = stackalloc (ushort, ushort, int)[]
+        {
+            (EV_REL, REL_WHEEL, delta),
+            (EV_SYN, SYN_REPORT, 0)
+        };
+        _client.SimulateEvents(events);
     }
 
     public void KeyPress(int keyCode, bool pressed)
     {
-        _client.SimulateEvent(EV_KEY, (ushort)keyCode, pressed ? 1 : 0);
-        Sync();
+        Span<(ushort, ushort, int)> events = stackalloc (ushort, ushort, int)[]
+        {
+            (EV_KEY, (ushort)keyCode, pressed ? 1 : 0),
+            (EV_SYN, SYN_REPORT, 0)
+        };
+        _client.SimulateEvents(events);
     }
 
     public void Sync()

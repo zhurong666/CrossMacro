@@ -195,6 +195,30 @@ public class IpcClient : IDisposable
         });
     }
 
+    public void SimulateEvents(ReadOnlySpan<(ushort Type, ushort Code, int Value)> events)
+    {
+        if (!IsConnected) return;
+
+        lock (_writeLock)
+        {
+            try
+            {
+                foreach (var (type, code, value) in events)
+                {
+                    _writer!.Write((byte)IpcOpCode.SimulateEvent);
+                    _writer.Write(type);
+                    _writer.Write(code);
+                    _writer.Write(value);
+                }
+                _stream!.Flush();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to send batch IPC messages");
+            }
+        }
+    }
+
     public void ConfigureResolution(int width, int height)
     {
         Send(IpcOpCode.ConfigureResolution, w =>

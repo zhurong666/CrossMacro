@@ -10,6 +10,11 @@ namespace CrossMacro.Platform.MacOS.Services;
 
 public class MacOSInputCapture : IInputCapture
 {
+    private static readonly IReadOnlyList<InputDeviceInfo> Devices =
+    [
+        new InputDeviceInfo { Name = "CoreGraphics Virtual Device", IsKeyboard = true, IsMouse = true }
+    ];
+
     private IntPtr _eventTap;
     private IntPtr _runLoopSource;
     private IntPtr _runLoop;
@@ -37,13 +42,7 @@ public class MacOSInputCapture : IInputCapture
         _captureKeyboard = captureKeyboard;
     }
 
-    public IReadOnlyList<InputDeviceInfo> GetAvailableDevices()
-    {
-        return
-        [
-            new InputDeviceInfo { Name = "CoreGraphics Virtual Device", IsKeyboard = true, IsMouse = true }
-        ];
-    }
+    public IReadOnlyList<InputDeviceInfo> GetAvailableDevices() => Devices;
 
     public Task StartAsync(CancellationToken ct)
     {
