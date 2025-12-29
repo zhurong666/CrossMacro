@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using CrossMacro.Core.Services;
@@ -11,6 +10,10 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
 {
     public class KdePositionProvider : IMousePositionProvider
     {
+        private static readonly string ScriptDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "crossmacro", "scripts");
+
         private string? _scriptId;
         private string? _tempJsFile;
         private int _currentX;
@@ -22,19 +25,14 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
         
         private Connection? _dbusConnection;
         private KdeTrackerService? _trackerService;
-        
-
-        
-
 
         public string ProviderName => "KDE KWin Script (DBus)";
         public bool IsSupported { get; private set; }
 
         public KdePositionProvider()
         {
-            // Check if we are running on KDE
-            var currentDesktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
-            IsSupported = currentDesktop.Equals("KDE", StringComparison.OrdinalIgnoreCase);
+            var currentDesktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP");
+            IsSupported = string.Equals(currentDesktop, "KDE", StringComparison.OrdinalIgnoreCase);
 
             if (IsSupported)
             {
@@ -69,15 +67,12 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
             });
         }
 
-        private string GetSafeScriptPath(string fileName)
+        private static string GetSafeScriptPath(string fileName)
         {
-            var localShare = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var scriptDir = Path.Combine(localShare, "crossmacro", "scripts");
-            
-            if (!Directory.Exists(scriptDir))
-                Directory.CreateDirectory(scriptDir);
+            if (!Directory.Exists(ScriptDirectory))
+                Directory.CreateDirectory(ScriptDirectory);
                 
-            return Path.Combine(scriptDir, fileName);
+            return Path.Combine(ScriptDirectory, fileName);
         }
 
         private async Task InitializeAsync(System.Threading.CancellationToken ct)

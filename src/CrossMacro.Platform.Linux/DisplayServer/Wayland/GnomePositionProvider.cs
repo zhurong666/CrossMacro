@@ -84,6 +84,14 @@ export default class CursorSpyExtension extends Extension {
   ""shell-version"": [ ""45"", ""46"", ""47"", ""48"", ""49"" ]
 }
 ";
+        private const string ExtensionUuid = "crossmacro@zynix.net";
+        
+        private static readonly string ExtensionPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".local", "share", "gnome-shell", "extensions", ExtensionUuid);
+        private static readonly string ExtensionJsPath = Path.Combine(ExtensionPath, "extension.js");
+        private static readonly string MetadataJsonPath = Path.Combine(ExtensionPath, "metadata.json");
+
         private Connection? _connection;
         private IGnomeTrackerService? _proxy;
         private readonly TaskCompletionSource<bool> _initializationTcs = new();
@@ -91,7 +99,6 @@ export default class CursorSpyExtension extends Extension {
         private (int Width, int Height)? _cachedResolution;
         private bool _disposed;
         
-        // Event for notifying about extension status
         public event EventHandler<string>? ExtensionStatusChanged;
 
         public string ProviderName => "GNOME Shell Extension (DBus)";
@@ -99,15 +106,14 @@ export default class CursorSpyExtension extends Extension {
 
         public GnomePositionProvider()
         {
-            var currentDesktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
-            var session = Environment.GetEnvironmentVariable("GDMSESSION") ?? "";
+            var currentDesktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP");
+            var session = Environment.GetEnvironmentVariable("GDMSESSION");
             
-            IsSupported = currentDesktop.Contains("GNOME", StringComparison.OrdinalIgnoreCase) || 
-                          session.Contains("gnome", StringComparison.OrdinalIgnoreCase);
+            IsSupported = (currentDesktop?.Contains("GNOME", StringComparison.OrdinalIgnoreCase) ?? false) || 
+                          (session?.Contains("gnome", StringComparison.OrdinalIgnoreCase) ?? false);
 
             if (IsSupported)
             {
-                // Fire and forget, but exceptions are caught in InitializeAsync
                 _ = Task.Run(InitializeAsync);
             }
             else
@@ -120,35 +126,29 @@ export default class CursorSpyExtension extends Extension {
         {
             try
             {
-                var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                var extensionPath = Path.Combine(homeDir, ".local/share/gnome-shell/extensions/crossmacro@zynix.net");
-                
-                bool extensionFilesExist = Directory.Exists(extensionPath) && 
-                    File.Exists(Path.Combine(extensionPath, "extension.js")) &&
-                    File.Exists(Path.Combine(extensionPath, "metadata.json"));
+                bool extensionFilesExist = Directory.Exists(ExtensionPath) && 
+                    File.Exists(ExtensionJsPath) &&
+                    File.Exists(MetadataJsonPath);
                 
                 if (!extensionFilesExist)
                 {
-                    // Install extension files
-                    Log.Information("[GnomePositionProvider] Installing GNOME Shell extension to {Path}", extensionPath);
-                    Directory.CreateDirectory(extensionPath);
+                    Log.Information("[GnomePositionProvider] Installing GNOME Shell extension to {Path}", ExtensionPath);
+                    Directory.CreateDirectory(ExtensionPath);
                     
-                    await File.WriteAllTextAsync(Path.Combine(extensionPath, "extension.js"), EXTENSION_JS);
-                    await File.WriteAllTextAsync(Path.Combine(extensionPath, "metadata.json"), METADATA_JSON);
+                    await File.WriteAllTextAsync(ExtensionJsPath, EXTENSION_JS);
+                    await File.WriteAllTextAsync(MetadataJsonPath, METADATA_JSON);
                     
                     // Wait for files to be fully written to disk
-                    var extensionJsPath = Path.Combine(extensionPath, "extension.js");
-                    var metadataJsonPath = Path.Combine(extensionPath, "metadata.json");
-                    var maxWaitMs = 3000;
+                    const int maxWaitMs = 3000;
                     var elapsedMs = 0;
                     
                     while (elapsedMs < maxWaitMs)
                     {
-                        var extensionJsInfo = new FileInfo(extensionJsPath);
-                        var metadataJsonInfo = new FileInfo(metadataJsonPath);
+                        var jsInfo = new FileInfo(ExtensionJsPath);
+                        var metaInfo = new FileInfo(MetadataJsonPath);
                         
-                        if (extensionJsInfo.Exists && extensionJsInfo.Length > 0 &&
-                            metadataJsonInfo.Exists && metadataJsonInfo.Length > 0)
+                        if (jsInfo.Exists && jsInfo.Length > 0 &&
+                            metaInfo.Exists && metaInfo.Length > 0)
                         {
                             Log.Debug("[GnomePositionProvider] Files verified on disk after {Ms}ms", elapsedMs);
                             break;
@@ -167,10 +167,8 @@ export default class CursorSpyExtension extends Extension {
                 }
                 else
                 {
-                    Log.Debug("[GnomePositionProvider] Extension files already exist at {Path}", extensionPath);
+                    Log.Debug("[GnomePositionProvider] Extension files already exist at {Path}", ExtensionPath);
                 }
-                
-                // Do not validate immediately here as we need connection first
             }
             catch (Exception ex)
             {
@@ -186,7 +184,7 @@ export default class CursorSpyExtension extends Extension {
                 if (_connection == null) return false;
                 
                 var extensionsProxy = _connection.CreateProxy<IGnomeShellExtensions>("org.gnome.Shell", "/org/gnome/Shell");
-                var info = await extensionsProxy.GetExtensionInfoAsync("crossmacro@zynix.net");
+                var info = await extensionsProxy.GetExtensionInfoAsync(ExtensionUuid);
                 
                 if (info != null && info.TryGetValue("state", out var stateObj))
                 {
@@ -216,7 +214,7 @@ export default class CursorSpyExtension extends Extension {
                 if (_connection == null) return false;
 
                 var extensionsProxy = _connection.CreateProxy<IGnomeShellExtensions>("org.gnome.Shell", "/org/gnome/Shell");
-                return await extensionsProxy.EnableExtensionAsync("crossmacro@zynix.net");
+                return await extensionsProxy.EnableExtensionAsync(ExtensionUuid);
             }
             catch (Exception ex)
             {

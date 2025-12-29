@@ -28,7 +28,7 @@ dotnet publish "$PROJECT_ROOT/src/CrossMacro.UI/CrossMacro.UI.csproj" \
     -c Release \
     -r "$RID" \
     --self-contained true \
-    -p:PublishSingleFile=false \
+    -p:PublishSingleFile=true \
     -p:PublishReadyToRun=false \
     -p:Version="$VERSION" \
     -o "$PUBLISH_DIR"

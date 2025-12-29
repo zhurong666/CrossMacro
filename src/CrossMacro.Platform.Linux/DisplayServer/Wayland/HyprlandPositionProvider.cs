@@ -6,12 +6,8 @@ using Serilog;
 
 namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
 {
-    /// <summary>
-    /// Mouse position provider for Hyprland compositor using IPC socket
-    /// </summary>
     public class HyprlandPositionProvider : IMousePositionProvider
     {
-        // Cached command byte arrays to avoid repeated encoding
         private static readonly byte[] CursorPosCommand = Encoding.UTF8.GetBytes("cursorpos");
         private static readonly byte[] MonitorsCommand = Encoding.UTF8.GetBytes("monitors");
 
@@ -79,56 +75,73 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
             int maxWidth = 0;
             int maxHeight = 0;
 
-            // Parse Hyprland monitors output
-            // Expected format: "\t1920x1080@60.00300 at 0x0"
-            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            
-            foreach (var line in lines)
-            {
-                // Look for resolution lines: contains "x", "at", and "@"
-                if (!line.Contains('x') || !line.Contains("at") || !line.Contains('@'))
-                    continue;
+            var monitorBlocks = output.Split("Monitor ", StringSplitOptions.RemoveEmptyEntries);
 
+            foreach (var block in monitorBlocks)
+            {
                 try
                 {
-                    var trimmed = line.Trim();
-                    var parts = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    var lines = block.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                     
-                    if (parts.Length < 3)
-                        continue;
+                    int width = 0;
+                    int height = 0;
+                    int posX = 0;
+                    int posY = 0;
+                    double scale = 1.0;
+                    bool resolutionFound = false;
 
-                    // Parse resolution: "1920x1080@60.00300"
-                    var resolutionPart = parts[0].Split('@')[0]; // "1920x1080"
-                    var resParts = resolutionPart.Split('x');
-                    
-                    if (resParts.Length != 2)
-                        continue;
+                    foreach (var line in lines)
+                    {
+                        var trimmed = line.Trim();
+                        
+                        if (trimmed.Contains('x') && trimmed.Contains("at") && !resolutionFound)
+                        {
+                            var parts = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 3)
+                            {
+                                var resPart = parts[0].Split('@')[0].Split('x');
+                                var atIndex = Array.IndexOf(parts, "at");
+                                
+                                if (resPart.Length == 2 && atIndex >= 0 && atIndex + 1 < parts.Length)
+                                {
+                                    var posPart = parts[atIndex + 1].Split('x');
+                                    
+                                    if (posPart.Length == 2)
+                                    {
+                                        if (int.TryParse(resPart[0], out width) &&
+                                            int.TryParse(resPart[1], out height) &&
+                                            int.TryParse(posPart[0], out posX) &&
+                                            int.TryParse(posPart[1], out posY))
+                                        {
+                                            resolutionFound = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (trimmed.StartsWith("scale:"))
+                        {
+                            var scalePart = trimmed.Substring("scale:".Length).Trim();
+                            if (double.TryParse(scalePart, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double s))
+                            {
+                                scale = s;
+                            }
+                        }
+                    }
 
-                    // Parse position: "0x0" (after "at")
-                    var atIndex = Array.IndexOf(parts, "at");
-                    if (atIndex < 0 || atIndex + 1 >= parts.Length)
-                        continue;
+                    if (resolutionFound && width > 0 && height > 0)
+                    {
+                        int logicalWidth = (int)Math.Round(width / scale);
+                        int logicalHeight = (int)Math.Round(height / scale);
 
-                    var positionPart = parts[atIndex + 1]; // "0x0"
-                    var posParts = positionPart.Split('x');
-                    
-                    if (posParts.Length != 2)
-                        continue;
-
-                    if (!int.TryParse(resParts[0], out int width) ||
-                        !int.TryParse(resParts[1], out int height) ||
-                        !int.TryParse(posParts[0], out int posX) ||
-                        !int.TryParse(posParts[1], out int posY))
-                        continue;
-
-                    // Calculate bounding box
-                    maxWidth = Math.Max(maxWidth, posX + width);
-                    maxHeight = Math.Max(maxHeight, posY + height);
+                        maxWidth = Math.Max(maxWidth, posX + logicalWidth);
+                        maxHeight = Math.Max(maxHeight, posY + logicalHeight);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug(ex, "[HyprlandPositionProvider] Failed to parse monitor line: {Line}", line);
-                    continue;
+                    Log.Warning(ex, "[HyprlandPositionProvider] Error parsing monitor block");
                 }
             }
 
@@ -140,11 +153,8 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
             if (string.IsNullOrWhiteSpace(response))
                 return null;
 
-            // Hyprland cursorpos returns format: "1920, 1080"
-            // Use Span-based parsing to avoid allocations
             ReadOnlySpan<char> span = response.AsSpan().Trim();
             
-            // Find comma position
             int commaIndex = span.IndexOf(',');
             if (commaIndex <= 0)
             {
@@ -152,23 +162,21 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
                 return null;
             }
             
-            // Parse X coordinate (before comma)
             var xSpan = span.Slice(0, commaIndex).Trim();
-            if (!int.TryParse(xSpan, out int x))
+            if (!double.TryParse(xSpan, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double x))
             {
                 Log.Warning("[HyprlandPositionProvider] Failed to parse X coordinate: {Response}", response);
                 return null;
             }
             
-            // Parse Y coordinate (after comma)
             var ySpan = span.Slice(commaIndex + 1).Trim();
-            if (!int.TryParse(ySpan, out int y))
+            if (!double.TryParse(ySpan, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double y))
             {
                 Log.Warning("[HyprlandPositionProvider] Failed to parse Y coordinate: {Response}", response);
                 return null;
             }
             
-            return (x, y);
+            return ((int)Math.Round(x), (int)Math.Round(y));
         }
 
         public void Dispose()

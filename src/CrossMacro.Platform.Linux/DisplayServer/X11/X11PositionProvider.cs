@@ -66,7 +66,6 @@ namespace CrossMacro.Platform.Linux.DisplayServer.X11
             }
         }
 
-
         public Task<(int X, int Y)?> GetAbsolutePositionAsync()
         {
             if (_disposed || !IsSupported)
