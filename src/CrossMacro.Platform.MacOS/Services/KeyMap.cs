@@ -135,6 +135,20 @@ internal static class KeyMap
         { InputEventCode.KEY_F18, 0x4F },
         { InputEventCode.KEY_F19, 0x50 },
         { InputEventCode.KEY_F20, 0x5A },
+        
+        // Volume/Media Keys
+        { InputEventCode.KEY_MUTE, 0x4A },          // kVK_Mute
+        { InputEventCode.KEY_VOLUMEDOWN, 0x49 },    // kVK_VolumeDown  
+        { InputEventCode.KEY_VOLUMEUP, 0x48 },      // kVK_VolumeUp
+        
+        // Help Key
+        { InputEventCode.KEY_HELP, 0x72 },          // kVK_Help
+        
+        // ISO Section Key (between left shift and Z on ISO keyboards)
+        { InputEventCode.KEY_102ND, 0x0A },         // kVK_ISO_Section
+        
+        // Insert key (maps to Help on Mac or Fn+Delete)
+        { InputEventCode.KEY_INSERT, 0x72 },        // Maps to Help key position
     };
     
     private static readonly Dictionary<ushort, int> _fromMac = new();

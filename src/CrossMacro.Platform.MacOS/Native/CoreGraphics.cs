@@ -62,6 +62,80 @@ internal static class CoreGraphics
     
     [DllImport(CoreGraphicsLib)]
     public static extern CGPoint CGEventGetLocation(IntPtr eventRef);
+    
+    /// <summary>
+    /// Gets the unicode string from a keyboard event
+    /// </summary>
+    [DllImport(CoreGraphicsLib)]
+    public static extern void CGEventKeyboardGetUnicodeString(
+        IntPtr eventRef,
+        nuint maxStringLength,
+        out nuint actualStringLength,
+        [Out] char[] unicodeString);
+
+    /// <summary>
+    /// Sets the unicode string for a keyboard event (for typing characters)
+    /// </summary>
+    [DllImport(CoreGraphicsLib)]
+    public static extern void CGEventKeyboardSetUnicodeString(
+        IntPtr eventRef,
+        nuint stringLength,
+        char[] unicodeString);
+    
+    // Text Input Source (TIS) functions for keyboard layout
+    private const string CarbonLib = "/System/Library/Frameworks/Carbon.framework/Carbon";
+    
+    [DllImport(CarbonLib)]
+    public static extern IntPtr TISCopyCurrentKeyboardInputSource();
+    
+    [DllImport(CarbonLib)]
+    public static extern IntPtr TISCopyCurrentKeyboardLayoutInputSource();
+    
+    [DllImport(CarbonLib)]
+    public static extern IntPtr TISGetInputSourceProperty(IntPtr inputSource, IntPtr propertyKey);
+    
+    // Property key for Unicode keyboard layout data - loaded at runtime
+    public static readonly IntPtr kTISPropertyUnicodeKeyLayoutData;
+    
+    static CoreGraphics()
+    {
+        try
+        {
+            IntPtr lib = NativeLibrary.Load(CarbonLib);
+            IntPtr addr = NativeLibrary.GetExport(lib, "kTISPropertyUnicodeKeyLayoutData");
+            kTISPropertyUnicodeKeyLayoutData = Marshal.ReadIntPtr(addr);
+        }
+        catch
+        {
+            kTISPropertyUnicodeKeyLayoutData = IntPtr.Zero;
+        }
+    }
+    
+    /// <summary>
+    /// UCKeyTranslate - converts keycode to unicode character
+    /// </summary>
+    [DllImport(CarbonLib)]
+    public static extern int UCKeyTranslate(
+        IntPtr keyLayoutPtr,
+        ushort virtualKeyCode,
+        ushort keyAction,
+        uint modifierKeyState,
+        uint keyboardType,
+        uint keyTranslateOptions,
+        ref uint deadKeyState,
+        nuint maxStringLength,
+        out nuint actualStringLength,
+        [Out] char[] unicodeString);
+    
+    // UCKeyTranslate action types
+    public const ushort kUCKeyActionDown = 0;
+    public const ushort kUCKeyActionUp = 1;
+    public const ushort kUCKeyActionAutoKey = 2;
+    public const ushort kUCKeyActionDisplay = 3;
+    
+    // UCKeyTranslate options
+    public const uint kUCKeyTranslateNoDeadKeysBit = 0;
+    public const uint kUCKeyTranslateNoDeadKeysMask = 1;
 
 
     // Enums and Structs

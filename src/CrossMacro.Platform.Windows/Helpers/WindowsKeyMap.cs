@@ -159,6 +159,26 @@ internal static class WindowsKeyMap
         // Forced Overrides for critical keys
         Add(InputEventCode.KEY_CAPSLOCK, 0x14);     // VK_CAPITAL
         Add(InputEventCode.KEY_SCROLLLOCK, 0x91);   // VK_SCROLL
+        
+        // ISO/International Keys
+        Add(86, 0xE2);                              // VK_OEM_102 (KEY_102ND - ISO extra key between left shift and Z)
+        
+        // Japanese IME Keys
+        Add(InputEventCode.KEY_HANGUEL, 0x15);      // VK_HANGUL / VK_KANA
+        Add(InputEventCode.KEY_HANJA, 0x19);        // VK_HANJA / VK_KANJI
+        
+        // System Control Keys (Sun keyboard style)
+        Add(InputEventCode.KEY_STOP, 0xF8);         // No direct VK, using reserved
+        Add(InputEventCode.KEY_COPY, 0xF9);         // No direct VK, using reserved
+        Add(InputEventCode.KEY_PASTE, 0xFA);        // No direct VK, using reserved
+        Add(InputEventCode.KEY_CUT, 0xFB);          // No direct VK, using reserved
+        Add(InputEventCode.KEY_UNDO, 0xFC);         // No direct VK, using reserved
+        Add(InputEventCode.KEY_FIND, 0xFD);         // No direct VK, using reserved
+        Add(InputEventCode.KEY_HELP, 0x2F);         // VK_HELP
+        
+        // Additional Browser/App Launch Keys
+        Add(InputEventCode.KEY_OPEN, 0xB6);         // VK_LAUNCH_APP1
+        Add(InputEventCode.KEY_PROPS, 0xB7);        // VK_LAUNCH_APP2
     }
 
     private static void Add(int evdev, ushort vk)

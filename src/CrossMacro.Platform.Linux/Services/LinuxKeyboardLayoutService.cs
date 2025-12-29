@@ -291,6 +291,9 @@ public class LinuxKeyboardLayoutService : IKeyboardLayoutService, IDisposable
             70 => "ScrollLock",
             99 => "PrintScreen",
             119 => "Pause",
+            127 => "Menu",           // KEY_COMPOSE (Context Menu / Apps key)
+            139 => "Menu",           // KEY_MENU (Alternative)
+            86 => "\\",              // KEY_102ND (ISO extra key)
             _ => null
         };
         if (special != null) return special;

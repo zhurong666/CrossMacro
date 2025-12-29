@@ -27,6 +27,9 @@ internal static class CoreFoundation
 
     [DllImport(CoreFoundationLib, CharSet = CharSet.Ansi)]
     public static extern void CFRelease(IntPtr cf);
+    
+    [DllImport(CoreFoundationLib)]
+    public static extern IntPtr CFDataGetBytePtr(IntPtr cfData);
 
     public static readonly IntPtr kCFRunLoopCommonModes;
     public static readonly IntPtr kCFRunLoopDefaultMode;

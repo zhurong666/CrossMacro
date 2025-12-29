@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using CrossMacro.Platform.Linux.Native.UInput;
+using CrossMacro.Platform.Linux.Services;
 using Serilog;
 
 namespace CrossMacro.Platform.Linux.Native.Evdev;
@@ -252,6 +253,62 @@ public class InputDeviceHelper
             return false;
 
         return (mask[byteIndex] & (1 << bitIndex)) != 0;
+    }
+
+    /// <summary>
+    /// Gets all supported key codes from a device by querying EVIOCGBIT_KEY.
+    /// Similar to what evtest does to list capabilities.
+    /// </summary>
+    /// <param name="devicePath">Path to the input device (e.g., /dev/input/event0)</param>
+    /// <returns>Dictionary of key code to key name for all supported keys</returns>
+    public static Dictionary<int, string> GetSupportedKeyCodes(string devicePath)
+    {
+        var result = new Dictionary<int, string>();
+        
+        int fd = EvdevNative.open(devicePath, EvdevNative.O_RDONLY);
+        if (fd < 0)
+        {
+            Log.Warning("[InputDeviceHelper] Cannot open {Path} for key code enumeration", devicePath);
+            return result;
+        }
+
+        try
+        {
+            // Get the key capability bitmask (need larger buffer for full KEY_MAX range)
+            // KEY_MAX is 0x2FF (767), so we need at least 96 bytes (767/8 + 1)
+            byte[] keyMask = new byte[128]; 
+            int len = EvdevNative.ioctl(fd, EvdevNative.EVIOCGBIT_KEY, keyMask);
+            
+            if (len < 0)
+            {
+                Log.Warning("[InputDeviceHelper] Failed to get key capabilities for {Path}", devicePath);
+                return result;
+            }
+
+            // Iterate through all possible key codes
+            for (int keyCode = 0; keyCode <= LinuxKeyCodeRegistry.KEY_MAX; keyCode++)
+            {
+                int byteIndex = keyCode / 8;
+                int bitIndex = keyCode % 8;
+
+                if (byteIndex >= keyMask.Length)
+                    continue;
+
+                if ((keyMask[byteIndex] & (1 << bitIndex)) != 0)
+                {
+                    string keyName = LinuxKeyCodeRegistry.GetKeyName(keyCode);
+                    result[keyCode] = keyName;
+                }
+            }
+
+            Log.Information("[InputDeviceHelper] Found {Count} supported keys on {Path}", result.Count, devicePath);
+        }
+        finally
+        {
+            EvdevNative.close(fd);
+        }
+
+        return result;
     }
 
     private static bool IsMouseFromProcDevices(string devicePath, string deviceName, string? procDevicesContent)

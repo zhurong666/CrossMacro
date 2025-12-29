@@ -179,4 +179,41 @@ public static class InputEventCode
     public const int KEY_STOPCD = 166;
     public const int KEY_MAIL = 155;
     public const int KEY_WWW = 150;
+    
+    // International/ISO Keys
+    public const int KEY_ZENKAKUHANKAKU = 85;
+    public const int KEY_102ND = 86;
+    
+    // Japanese Keys
+    public const int KEY_RO = 89;
+    public const int KEY_KATAKANA = 90;
+    public const int KEY_HIRAGANA = 91;
+    public const int KEY_HENKAN = 92;
+    public const int KEY_KATAKANAHIRAGANA = 93;
+    public const int KEY_MUHENKAN = 94;
+    public const int KEY_KPJPCOMMA = 95;
+    
+    // Korean Keys  
+    public const int KEY_HANGUEL = 122;
+    public const int KEY_HANJA = 123;
+    public const int KEY_YEN = 124;
+    
+    // Compose/Context Keys
+    public const int KEY_COMPOSE = 127;
+    
+    // System Control Keys
+    public const int KEY_STOP = 128;
+    public const int KEY_AGAIN = 129;
+    public const int KEY_PROPS = 130;
+    public const int KEY_UNDO = 131;
+    public const int KEY_FRONT = 132;
+    public const int KEY_COPY = 133;
+    public const int KEY_OPEN = 134;
+    public const int KEY_PASTE = 135;
+    public const int KEY_FIND = 136;
+    public const int KEY_CUT = 137;
+    public const int KEY_HELP = 138;
+    
+    // Numpad additional
+    public const int KEY_KPCOMMA = 121;
 }
