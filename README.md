@@ -47,6 +47,8 @@ This is required because standard Wayland security protocols prevent application
 - **Mouse Event Recording**: Record mouse clicks and movements
 - **Keyboard Event Recording**: Record keyboard key presses
 - **Text Expansion**: Create text shortcuts for quick insertions (e.g. :mail -> email@example.com)
+- **Shortcuts**: Assign macros to keyboard keys, mouse buttons, or combinations for instant execution
+- **Scheduling**: Run macros automatically at specific times or intervals
 - **Playback**: Replay recorded macros with pause/resume support
 - **Loop Mode**: Continuously repeat macros with customizable repeat count and delay
 - **Speed Control**: Adjust playback speed from 0.1x to 10.0x
@@ -355,5 +357,22 @@ pkcheck --version
 - Use the **AppImage** instead with `input` group permissions (see AppImage section above)
 
 > **Note:** Most desktop Linux distributions (Fedora, Ubuntu, Arch, etc.) include polkit by default. This is typically only an issue on minimal server installations or embedded systems.
+
+</details>
+
+<details>
+<summary><strong>Keyboard Events Not Recording (Mouse Works)</strong></summary>
+
+Some applications lock input devices to prevent them from being used by other programs. One such application is **GPU Screen Recorder**.
+
+To temporarily stop the conflicting service and record your macros:
+```bash
+systemctl --user stop gpu-screen-recorder
+```
+
+After you're done recording, you can restart the service with:
+```bash
+systemctl --user start gpu-screen-recorder
+```
 
 </details>
