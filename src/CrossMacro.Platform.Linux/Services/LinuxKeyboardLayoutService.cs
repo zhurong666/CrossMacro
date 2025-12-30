@@ -25,17 +25,21 @@ public class LinuxKeyboardLayoutService : IKeyboardLayoutService, IDisposable
     private readonly IBusLayoutSource _ibusSource = new();
     private readonly bool _isHyprland;
     private readonly bool _isKde;
+    private readonly bool _isGnome;
 
     public LinuxKeyboardLayoutService()
     {
         _isHyprland = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE"));
         var desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP")?.ToUpperInvariant() ?? "";
         _isKde = desktop.Contains("KDE") || desktop.Contains("PLASMA");
+        _isGnome = desktop.Contains("GNOME") || desktop.Contains("UNITY");
         
         if (_isHyprland)
             Log.Information("[KeyboardLayoutService] Environment: Hyprland");
         else if (_isKde)
             Log.Information("[KeyboardLayoutService] Environment: KDE Plasma");
+        else if (_isGnome)
+            Log.Information("[KeyboardLayoutService] Environment: GNOME");
         else
             Log.Information("[KeyboardLayoutService] Environment: Generic (IBus primary)");
 
@@ -100,12 +104,20 @@ public class LinuxKeyboardLayoutService : IKeyboardLayoutService, IDisposable
                     return kdeLayout;
             }
 
-            // 3. IBus (Works on GNOME , etc.)
+            // 3. GNOME GSettings
+            if (_isGnome)
+            {
+                var gnomeLayout = DetectGnomeLayout();
+                if (!string.IsNullOrWhiteSpace(gnomeLayout))
+                    return gnomeLayout;
+            }
+
+            // 4. IBus (Works on GNOME , etc.)
             var ibusLayout = _ibusSource.DetectLayout();
             if (!string.IsNullOrWhiteSpace(ibusLayout))
                 return ibusLayout;
 
-            // 4. X11/XWayland fallback
+            // 5. X11/XWayland fallback
             var x11Layout = DetectX11Layout();
             if (!string.IsNullOrWhiteSpace(x11Layout))
                 return x11Layout;
@@ -143,6 +155,43 @@ public class LinuxKeyboardLayoutService : IKeyboardLayoutService, IDisposable
         catch (Exception ex)
         {
             Log.Debug("[KeyboardLayoutService] KDE DBus failed: {Message}", ex.Message);
+        }
+        return null;
+    }
+
+    private string? DetectGnomeLayout()
+    {
+        try
+        {
+            // Get the current input source index
+            // Output might be "uint32 0" or just "0"
+            var currentOutput = ProcessHelper.ExecuteCommand("gsettings", "get org.gnome.desktop.input-sources current")?.Trim() ?? "";
+            var currentIndexStr = currentOutput.Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+            if (!uint.TryParse(currentIndexStr, out var index)) index = 0;
+
+            // Get the sources list: [('xkb', 'us'), ('xkb', 'tr')]
+            var sourcesOutput = ProcessHelper.ExecuteCommand("gsettings", "get org.gnome.desktop.input-sources sources")?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(sourcesOutput) || sourcesOutput == "@as []") return null;
+
+            // Robust parsing of [('xkb', 'us'), ('xkb', 'tr')]
+            // Remove brackets and split by "), (" or "),("
+            var content = sourcesOutput.Trim('[', ']');
+            var tuples = content.Split(new[] { "), (", "),(" }, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (index < (uint)tuples.Length)
+            {
+                var currentTuple = tuples[index].Trim('(', ')', ' ');
+                var parts = currentTuple.Split(',', StringSplitOptions.TrimEntries);
+                if (parts.Length > 1)
+                {
+                    // The layout is the second element: 'tr' or "tr"
+                    return parts[1].Trim('\'', '\"', ' ');
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("[KeyboardLayoutService] GNOME gsettings failed: {Message}", ex.Message);
         }
         return null;
     }
