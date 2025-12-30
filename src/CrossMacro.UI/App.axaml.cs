@@ -90,7 +90,7 @@ public partial class App : Application
             services.AddSingleton<CrossMacro.Platform.Linux.Ipc.IpcClient>();
             
             services.AddSingleton<IMousePositionProvider>(sp => 
-                MousePositionProviderFactory.CreateProvider());
+                sp.GetRequiredService<LinuxInputProviderFactory>().CreatePositionProvider());
             
             // Register Legacy implementations (Transient)
             services.AddTransient<CrossMacro.Platform.Linux.LinuxInputSimulator>();
@@ -106,13 +106,22 @@ public partial class App : Application
             services.AddTransient<CrossMacro.Platform.Linux.Ipc.LinuxIpcInputCapture>();
             services.AddSingleton<Func<CrossMacro.Platform.Linux.Ipc.LinuxIpcInputCapture>>(sp => () => sp.GetRequiredService<CrossMacro.Platform.Linux.Ipc.LinuxIpcInputCapture>());
             
+            // Register X11 Native implementations (Transient)
+            services.AddTransient<CrossMacro.Platform.Linux.Services.X11InputSimulator>();
+            services.AddSingleton<Func<CrossMacro.Platform.Linux.Services.X11InputSimulator>>(sp => () => sp.GetRequiredService<CrossMacro.Platform.Linux.Services.X11InputSimulator>());
+
+            services.AddTransient<CrossMacro.Platform.Linux.Services.X11InputCapture>();
+            services.AddSingleton<Func<CrossMacro.Platform.Linux.Services.X11InputCapture>>(sp => () => sp.GetRequiredService<CrossMacro.Platform.Linux.Services.X11InputCapture>());
+            
             // Register Factory
             services.AddSingleton<LinuxInputProviderFactory>(sp => new LinuxInputProviderFactory(
                 sp.GetRequiredService<CrossMacro.Platform.Linux.Ipc.IpcClient>(),
                 sp.GetRequiredService<Func<CrossMacro.Platform.Linux.LinuxInputSimulator>>(),
                 sp.GetRequiredService<Func<CrossMacro.Platform.Linux.LinuxInputCapture>>(),
                 sp.GetRequiredService<Func<CrossMacro.Platform.Linux.Ipc.LinuxIpcInputSimulator>>(),
-                sp.GetRequiredService<Func<CrossMacro.Platform.Linux.Ipc.LinuxIpcInputCapture>>()
+                sp.GetRequiredService<Func<CrossMacro.Platform.Linux.Ipc.LinuxIpcInputCapture>>(),
+                sp.GetRequiredService<Func<CrossMacro.Platform.Linux.Services.X11InputSimulator>>(),
+                sp.GetRequiredService<Func<CrossMacro.Platform.Linux.Services.X11InputCapture>>()
             ));
             
             // Use Factory for IInputSimulator and IInputCapture

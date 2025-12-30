@@ -32,7 +32,7 @@ public class MacroRecorder : IMacroRecorder, IDisposable
     private CancellationTokenSource? _syncCancellation;
     private const int BaseSyncIntervalMs = 1;
     private const int MaxSyncIntervalMs = 500;
-    private const int DriftThresholdPx = 0;
+    private const int DriftThresholdPx = 3;
     
     private const int PositionCacheMilliseconds = 1;
     private readonly TimeSpan _positionCacheTime = TimeSpan.FromMilliseconds(PositionCacheMilliseconds);
@@ -73,7 +73,6 @@ public class MacroRecorder : IMacroRecorder, IDisposable
 
         _isRecording = true;
         
-        // Determine coordinate mode: force relative OR fallback to relative if no position provider
         bool useAbsoluteCoordinates = !forceRelative && _positionProvider != null && _positionProvider.IsSupported;
         _useAbsoluteCoordinates = useAbsoluteCoordinates;
         
@@ -137,13 +136,10 @@ public class MacroRecorder : IMacroRecorder, IDisposable
             
             _ = _inputCapture.StartAsync(cancellationToken);
             
-            // Give input capture some time to initialize/warm-up to avoid missing initial rapid events
-            // Delay removed to prevent missing immediate events
-            // await Task.Delay(200, cancellationToken);
+
             
             Log.Information("[MacroRecorder] Input capture started via {ProviderName}", _inputCapture.ProviderName);
 
-            // Use absolute mode only if we have a position provider AND not forcing relative mode
             if (recordMouse && useAbsoluteCoordinates)
             {
                 try
@@ -166,7 +162,6 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                             retryCount++;
                             if (retryCount < InitialPositionRetryCount)
                             {
-                                // Exponential backoff: 5ms, 10ms, 20ms
                                 int delayMs = InitialPositionRetryBaseDelayMs * (1 << retryCount);
                                 Log.Warning("[MacroRecorder] Failed to get initial position, retrying in {DelayMs}ms ({Retry}/{Max})...", 
                                     delayMs, retryCount, InitialPositionRetryCount);
@@ -184,8 +179,17 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                         throw new InvalidOperationException("Could not determine initial mouse position. Recording aborted to prevent drift.");
                     }
 
-                    _syncCancellation = new CancellationTokenSource();
-                    _syncTask = Task.Run(() => PositionSyncLoop(_syncCancellation.Token));
+                    bool isX11NativeCapture = _inputCapture?.ProviderName?.Contains("X11") == true;
+                    
+                    if (!isX11NativeCapture)
+                    {
+                        _syncCancellation = new CancellationTokenSource();
+                        _syncTask = Task.Run(() => PositionSyncLoop(_syncCancellation.Token));
+                    }
+                    else
+                    {
+                        Log.Information("[MacroRecorder] X11 Native capture detected - PositionSyncLoop disabled (event-driven)");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -195,7 +199,6 @@ public class MacroRecorder : IMacroRecorder, IDisposable
             }
             else if (recordMouse)
             {
-                // Relative recording mode (forced or fallback)
                 Log.Information("[MacroRecorder] Relative recording mode active (Blind Mode), ForceRelative={ForceRelative}", forceRelative);
                 
                 if (!skipInitialZero)
@@ -207,8 +210,8 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                         {
                             using var resetSimulator = _inputSimulatorFactory();
                             resetSimulator.Initialize();
-                            await Task.Delay(10, cancellationToken); // Minimal stabilization (reduced from 50ms)
-                            resetSimulator.MoveRelative(-20000, -20000); // Single large move
+                            await Task.Delay(10, cancellationToken);
+                            resetSimulator.MoveRelative(-20000, -20000);
                             Log.Information("[MacroRecorder] Corner Reset complete.");
                         }
                         else
@@ -400,7 +403,7 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                         FlushPendingMove();
                     }
                     
-                    // Backward compatibility: some platforms may still send mouse buttons as Key
+
                     if (e.Code == InputEventCode.BTN_LEFT || e.Code == InputEventCode.BTN_RIGHT || e.Code == InputEventCode.BTN_MIDDLE)
                     {
                         HandleMouseButtonEvent(e);
@@ -459,13 +462,12 @@ public class MacroRecorder : IMacroRecorder, IDisposable
         
         if (_useAbsoluteCoordinates)
         {
-            // Absolute mode: store position for reference
+
             buttonEvent.X = _cachedX;
             buttonEvent.Y = _cachedY;
         }
         else
         {
-            // Relative mode: coordinates not used for button events
             buttonEvent.X = 0;
             buttonEvent.Y = 0;
         }
@@ -491,7 +493,7 @@ public class MacroRecorder : IMacroRecorder, IDisposable
 
         if (_useAbsoluteCoordinates)
         {
-            // Absolute mode: store cumulative position
+
             _cachedX += _pendingRelX;
             _cachedY += _pendingRelY;
             macroEvent.X = _cachedX;
@@ -499,10 +501,9 @@ public class MacroRecorder : IMacroRecorder, IDisposable
         }
         else
         {
-            // Relative mode: store raw deltas
             macroEvent.X = _pendingRelX;
             macroEvent.Y = _pendingRelY;
-            // Still track cumulative for button events
+
             _cachedX += _pendingRelX;
             _cachedY += _pendingRelY;
         }
@@ -549,7 +550,7 @@ public class MacroRecorder : IMacroRecorder, IDisposable
             }
             catch (AggregateException)
             {
-                // Task was cancelled or timed out - expected during shutdown
+
             }
             
             _syncCancellation?.Dispose();

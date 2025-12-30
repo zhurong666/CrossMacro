@@ -18,6 +18,8 @@ public class LinuxInputProviderFactory
     private readonly Func<LinuxInputCapture> _legacyCaptureFactory;
     private readonly Func<LinuxIpcInputSimulator> _ipcSimulatorFactory;
     private readonly Func<LinuxIpcInputCapture> _ipcCaptureFactory;
+    private readonly Func<CrossMacro.Platform.Linux.Services.X11InputSimulator> _x11SimulatorFactory;
+    private readonly Func<CrossMacro.Platform.Linux.Services.X11InputCapture> _x11CaptureFactory;
 
     // Cache the decision to ensure consistent behavior
     private bool? _useLegacy;
@@ -27,37 +29,136 @@ public class LinuxInputProviderFactory
         Func<LinuxInputSimulator> legacySimulatorFactory,
         Func<LinuxInputCapture> legacyCaptureFactory,
         Func<LinuxIpcInputSimulator> ipcSimulatorFactory,
-        Func<LinuxIpcInputCapture> ipcCaptureFactory)
+        Func<LinuxIpcInputCapture> ipcCaptureFactory,
+        Func<CrossMacro.Platform.Linux.Services.X11InputSimulator> x11SimulatorFactory,
+        Func<CrossMacro.Platform.Linux.Services.X11InputCapture> x11CaptureFactory)
     {
         _ipcClient = ipcClient;
         _legacySimulatorFactory = legacySimulatorFactory;
         _legacyCaptureFactory = legacyCaptureFactory;
         _ipcSimulatorFactory = ipcSimulatorFactory;
         _ipcCaptureFactory = ipcCaptureFactory;
+        _x11SimulatorFactory = x11SimulatorFactory;
+        _x11CaptureFactory = x11CaptureFactory;
+    }
+
+    // Log suppression flags
+    private static bool _loggedPositionProvider;
+    private static bool _loggedSimulator;
+    private static bool _loggedCapture;
+
+    public IMousePositionProvider CreatePositionProvider()
+    {
+        // Use existing detection logic (moved from MousePositionProviderFactory)
+        var compositorType = CrossMacro.Platform.Linux.DisplayServer.CompositorDetector.DetectCompositor();
+        
+        if (!_loggedPositionProvider)
+        {
+            Log.Information("[LinuxInputFactory] DetectCompositor: {Compositor}", compositorType);
+            _loggedPositionProvider = true;
+        }
+
+        return compositorType switch
+        {
+            CrossMacro.Platform.Linux.DisplayServer.CompositorType.X11 => new CrossMacro.Platform.Linux.DisplayServer.X11.X11PositionProvider(),
+            CrossMacro.Platform.Linux.DisplayServer.CompositorType.HYPRLAND => new CrossMacro.Platform.Linux.DisplayServer.Wayland.HyprlandPositionProvider(),
+            CrossMacro.Platform.Linux.DisplayServer.CompositorType.KDE => new CrossMacro.Platform.Linux.DisplayServer.Wayland.KdePositionProvider(),
+            CrossMacro.Platform.Linux.DisplayServer.CompositorType.GNOME => new CrossMacro.Platform.Linux.DisplayServer.Wayland.GnomePositionProvider(),
+            _ => new CrossMacro.Platform.Linux.DisplayServer.FallbackPositionProvider()
+        };
     }
 
     public IInputSimulator CreateSimulator()
     {
-        if (ShouldUseLegacy())
+        var compositor = CrossMacro.Platform.Linux.DisplayServer.CompositorDetector.DetectCompositor();
+        
+        // 1. Wayland / Hybrid -> Force Daemon (IPC)
+        // Note: GNOME/KDE/HYPRLAND types in CompositorDetector implies Wayland session
+        if (IsWayland(compositor))
         {
-            Log.Information("[LinuxInputFactory] Using Legacy (Direct) Input Simulator");
-            return _legacySimulatorFactory();
+            if (!_loggedSimulator)
+            {
+                Log.Information("[LinuxInputFactory] Wayland detected ({Comp}), using Daemon Input Simulator", compositor);
+                _loggedSimulator = true;
+            }
+            return _ipcSimulatorFactory();
+        }
+
+        // 2. X11 / Unknown -> Try Native X11
+        var x11Sim = _x11SimulatorFactory();
+        if (x11Sim.IsSupported)
+        {
+            if (!_loggedSimulator)
+            {
+                Log.Information("[LinuxInputFactory] X11 detected, using Native X11 Input Simulator");
+                _loggedSimulator = true;
+            }
+            return x11Sim;
+        }
+
+        // 3. Fallback (Native X11 failed or unsupported) -> Legacy/Daemon
+        // This covers cases where standard X11 extensions are missing or we are in a weird state.
+        if (!_loggedSimulator)
+        {
+            Log.Information("[LinuxInputFactory] Fallback: Using Daemon/Legacy Input Simulator");
+            _loggedSimulator = true;
         }
         
-        Log.Information("[LinuxInputFactory] Using Daemon (IPC) Input Simulator");
+        // Check if we should use Direct UInput (AppImage/Root case) or IPC
+        if (ShouldUseLegacy())
+        {
+             return _legacySimulatorFactory();
+        }
         return _ipcSimulatorFactory();
     }
 
     public IInputCapture CreateCapture()
     {
-        if (ShouldUseLegacy())
+        var compositor = CrossMacro.Platform.Linux.DisplayServer.CompositorDetector.DetectCompositor();
+
+        // 1. Wayland / Hybrid -> Force Daemon (IPC)
+        if (IsWayland(compositor))
         {
-            Log.Information("[LinuxInputFactory] Using Legacy (Direct) Input Capture");
-            return _legacyCaptureFactory();
+            if (!_loggedCapture)
+            {
+                Log.Information("[LinuxInputFactory] Wayland detected ({Comp}), using Daemon Input Capture", compositor);
+                _loggedCapture = true;
+            }
+            return _ipcCaptureFactory();
         }
 
-        Log.Information("[LinuxInputFactory] Using Daemon (IPC) Input Capture");
+        // 2. X11 / Unknown -> Try Native X11
+        var x11Cap = _x11CaptureFactory();
+        if (x11Cap.IsSupported)
+        {
+            if (!_loggedCapture)
+            {
+                Log.Information("[LinuxInputFactory] X11 detected, using Native X11 Input Capture");
+                _loggedCapture = true;
+            }
+            return x11Cap;
+        }
+
+        // 3. Fallback
+        if (!_loggedCapture)
+        {
+            Log.Information("[LinuxInputFactory] Fallback: Using Daemon/Legacy Input Capture");
+            _loggedCapture = true;
+        }
+
+        if (ShouldUseLegacy())
+        {
+            return _legacyCaptureFactory();
+        }
         return _ipcCaptureFactory();
+    }
+
+    private bool IsWayland(CrossMacro.Platform.Linux.DisplayServer.CompositorType type)
+    {
+        return type == CrossMacro.Platform.Linux.DisplayServer.CompositorType.HYPRLAND ||
+               type == CrossMacro.Platform.Linux.DisplayServer.CompositorType.GNOME ||
+               type == CrossMacro.Platform.Linux.DisplayServer.CompositorType.KDE ||
+               type == CrossMacro.Platform.Linux.DisplayServer.CompositorType.Other;
     }
 
     private bool ShouldUseLegacy()

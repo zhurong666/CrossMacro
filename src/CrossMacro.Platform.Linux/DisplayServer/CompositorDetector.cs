@@ -11,18 +11,23 @@ namespace CrossMacro.Platform.Linux.DisplayServer
         /// <summary>
         /// Detects the current compositor by checking environment variables
         /// </summary>
-        public static CompositorType DetectCompositor()
+        private static readonly Lazy<CompositorType> _current = new(() =>
         {
             // Check session type (X11 vs Wayland)
             var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
             var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
             var x11Display = Environment.GetEnvironmentVariable("DISPLAY");
+
+            Log.Information("[CompositorDetector] Environment Detection - SessionType: {SessionType}, WaylandDisplay: {WaylandDisplay}, Display: {Display}", 
+                sessionType ?? "null", waylandDisplay ?? "null", x11Display ?? "null");
             
             var isWayland = !string.IsNullOrEmpty(waylandDisplay) || 
                            string.Equals(sessionType, "wayland", StringComparison.OrdinalIgnoreCase);
             
             var isX11 = !string.IsNullOrEmpty(x11Display) ||
                        string.Equals(sessionType, "x11", StringComparison.OrdinalIgnoreCase);
+
+            Log.Information("[CompositorDetector] Session Flags - IsWayland: {IsWayland}, IsX11: {IsX11}", isWayland, isX11);
 
             // Prioritize X11 detection if both are present (XWayland scenario)
             if (isX11 && !isWayland)
@@ -56,7 +61,12 @@ namespace CrossMacro.Platform.Linux.DisplayServer
                 
                 _ => CompositorType.Unknown
             };
-        }
+        });
+
+        /// <summary>
+        /// Detects the current compositor by checking environment variables
+        /// </summary>
+        public static CompositorType DetectCompositor() => _current.Value;
 
         private static CompositorType LogAndReturn(CompositorType type, string name)
         {
