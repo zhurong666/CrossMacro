@@ -103,10 +103,29 @@ systemctl restart crossmacro.service
 echo ""
 echo "Installing Polkit rules..."
 
+
+# Install UDev Rules (Permissions for /dev/uinput)
+# This allows the 'input' group to write to /dev/uinput
+if [ -d "/etc/udev/rules.d" ]; then
+    cp "$REPO_ROOT/scripts/assets/99-crossmacro.rules" /etc/udev/rules.d/99-crossmacro.rules
+    echo "   Installed udev rules to /etc/udev/rules.d/"
+else
+    echo "   Warning: /etc/udev/rules.d not found. Manual permission setup for /dev/uinput might be needed."
+fi
+
+# Install Modules Load Config (Load uinput on boot)
+if [ -d "/etc/modules-load.d" ]; then
+    cp "$REPO_ROOT/scripts/assets/crossmacro-modules.conf" /etc/modules-load.d/crossmacro.conf
+    echo "   Installed modules-load config to /etc/modules-load.d/"
+else
+    echo "   Warning: /etc/modules-load.d not found. You may need to load 'uinput' manually."
+fi
+
 # Install Policy (Action Definitions)
 # This allows the "org.crossmacro.input-capture" actions to be known to the system.
 cp "$REPO_ROOT/scripts/assets/org.crossmacro.policy" /usr/share/polkit-1/actions/org.crossmacro.policy
 chmod 644 /usr/share/polkit-1/actions/org.crossmacro.policy
+
 
 # Install Rules (Authorization Logic)
 # This allows the 'crossmacro' group members to bypass password prompt.
@@ -125,6 +144,15 @@ fi
 if systemctl is-active --quiet polkit; then
     systemctl restart polkit || true
 fi
+
+# Reload udev rules to apply permissions immediately
+echo "   Reloading udev rules..."
+udevadm control --reload-rules && udevadm trigger
+
+# Load uinput module immediately
+echo "   Loading uinput kernel module..."
+modprobe uinput || echo "   Warning: Failed to load uinput module. Reboot may be required."
+
 # -----------------------------------------------------------------------------
 # 4. Done
 # -----------------------------------------------------------------------------
