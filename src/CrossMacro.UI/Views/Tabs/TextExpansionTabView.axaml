@@ -131,7 +131,7 @@
                                                     Command="{Binding #Root.((vm:TextExpansionViewModel)DataContext).RemoveExpansionCommand}"
                                                     CommandParameter="{Binding}"
                                                     Cursor="Hand">
-                                                <TextBlock Text="🗑" FontSize="14" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                                <TextBlock Text="🗑" FontSize="14" FontFamily="{StaticResource EmojiFont}" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                                                 <Button.Styles>
                                                     <Style Selector="Button:pointerover TextBlock">
                                                         <Setter Property="Foreground" Value="#EF4444"/>
@@ -147,10 +147,9 @@
                 </Border>
                 
                 <!-- Footer Info -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <TextBlock Text="💡 Enable in Settings tab to start expanding" 
-                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
-                               FontSize="12"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <TextBlock Text="💡" FontSize="12" FontFamily="{StaticResource EmojiFont}" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    <TextBlock Text="Enable in Settings tab to start expanding" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                 </StackPanel>
 
                 <!-- NEW: Bottom Spacer -->

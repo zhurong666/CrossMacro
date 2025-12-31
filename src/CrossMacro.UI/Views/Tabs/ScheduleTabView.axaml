@@ -98,7 +98,7 @@
                                                 CommandParameter="{Binding}"
                                                 Cursor="Hand"
                                                 ToolTip.Tip="Edit task">
-                                            <TextBlock Text="✏️" FontSize="12"/>
+                                            <TextBlock Text="✏️" FontSize="12" FontFamily="{StaticResource EmojiFont}"/>
                                             <Button.Styles>
                                                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                                                     <Setter Property="Background" Value="#334155"/>
@@ -114,7 +114,7 @@
                                                 CommandParameter="{Binding}"
                                                 Cursor="Hand"
                                                 ToolTip.Tip="Delete task">
-                                            <TextBlock Text="🗑" FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                            <TextBlock Text="🗑" FontSize="12" FontFamily="{StaticResource EmojiFont}" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                                             <Button.Styles>
                                                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                                                     <Setter Property="Background" Value="#334155"/>
@@ -182,8 +182,12 @@
                                           ToolTip.Tip="{Binding SelectedMacroFilePath, FallbackValue=''}"/>
                             </Border>
                             <Button Grid.Column="1" 
-                                   Content="📂 Browse" 
-                                   Command="{Binding BrowseMacroCommand}"/>
+                                   Command="{Binding BrowseMacroCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="📂" FontFamily="{StaticResource EmojiFont}"/>
+                                    <TextBlock Text="Browse"/>
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </StackPanel>
                     
@@ -191,12 +195,20 @@
                     <StackPanel Spacing="8">
                         <TextBlock Text="Schedule Type" FontSize="12" Opacity="0.7"/>
                         <StackPanel Orientation="Horizontal" Spacing="16">
-                            <RadioButton Content="⏱️ Interval (repeat)" 
-                                        IsChecked="{Binding IsIntervalSelected, Mode=TwoWay}"
-                                        GroupName="ScheduleType"/>
-                            <RadioButton Content="📅 Date/Time (once)" 
-                                        IsChecked="{Binding IsDateTimeSelected, Mode=TwoWay}"
-                                        GroupName="ScheduleType"/>
+                            <RadioButton IsChecked="{Binding IsIntervalSelected, Mode=TwoWay}"
+                                        GroupName="ScheduleType">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="⏱️" FontFamily="{StaticResource EmojiFont}"/>
+                                    <TextBlock Text="Interval (repeat)"/>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton IsChecked="{Binding IsDateTimeSelected, Mode=TwoWay}"
+                                        GroupName="ScheduleType">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="📅" FontFamily="{StaticResource EmojiFont}"/>
+                                    <TextBlock Text="Date/Time (once)"/>
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
@@ -255,8 +267,10 @@
                                    UseSeconds="True"
                                    HorizontalAlignment="Stretch"/>
                     </StackPanel>
-                    <TextBlock Text="💡 The macro will run once at the selected date" 
-                              FontSize="11" Opacity="0.5"/>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="💡" FontSize="11" FontFamily="{StaticResource EmojiFont}" Opacity="0.5"/>
+                        <TextBlock Text="The macro will run once at the selected date" FontSize="11" Opacity="0.5"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
             
@@ -290,11 +304,15 @@
             </Border>
             
             <!-- Save Button -->
-            <Button Content="💾 Save All Tasks" 
-                   Command="{Binding SaveCommand}"
+            <Button Command="{Binding SaveCommand}"
                    Classes="success"
                    HorizontalAlignment="Right"
-                   IsVisible="{Binding HasSelectedTask}"/>
+                   IsVisible="{Binding HasSelectedTask}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="💾" FontFamily="{StaticResource EmojiFont}"/>
+                    <TextBlock Text="Save All Tasks"/>
+                </StackPanel>
+            </Button>
             
             <!-- Empty State -->
             <Border Background="#1E293B" 
@@ -302,7 +320,7 @@
                     Padding="32"
                     IsVisible="{Binding !HasSelectedTask}">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-                    <TextBlock Text="🕐" FontSize="48" HorizontalAlignment="Center"/>
+                    <TextBlock Text="🕐" FontSize="48" FontFamily="{StaticResource EmojiFont}" HorizontalAlignment="Center"/>
                     <TextBlock Text="No Task Selected" 
                               FontSize="16" 
                               FontWeight="Medium"

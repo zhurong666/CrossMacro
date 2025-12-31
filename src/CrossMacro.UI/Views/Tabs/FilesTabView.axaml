@@ -16,16 +16,24 @@
                     <TextBox Text="{Binding MacroName}" Watermark="Enter macro name..."/>
                 </StackPanel>
                 
-                <Button Content="📂 Load Macro"
-                        Command="{Binding LoadMacroAsync}"
+                <Button Command="{Binding LoadMacroAsync}"
                         HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"/>
+                        HorizontalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="📂" FontFamily="{StaticResource EmojiFont}"/>
+                        <TextBlock Text="Load Macro"/>
+                    </StackPanel>
+                </Button>
     
-                <Button Content="💾 Save Macro"
-                        Command="{Binding SaveMacroAsync}"
+                <Button Command="{Binding SaveMacroAsync}"
                         IsEnabled="{Binding HasRecordedMacro}"
                         HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"/>
+                        HorizontalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="💾" FontFamily="{StaticResource EmojiFont}"/>
+                        <TextBlock Text="Save Macro"/>
+                    </StackPanel>
+                </Button>
 
                 <!-- NEW: Bottom Spacer -->
                 <Rectangle Height="40" Fill="Transparent"/>

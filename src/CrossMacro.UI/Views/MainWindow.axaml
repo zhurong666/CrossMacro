@@ -107,7 +107,7 @@
                                 <Border Width="32" Height="32" Background="Transparent">
                                      <TextBlock Text="{Binding Icon}" 
                                                FontSize="20" 
-                                               FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji, sans-serif"
+                                               FontFamily="{StaticResource EmojiFont}"
                                                HorizontalAlignment="Center" 
                                                VerticalAlignment="Center"/>
                                 </Border>
@@ -163,7 +163,7 @@
                                 <Border Width="32" Height="32" Background="Transparent">
                                      <TextBlock Text="{Binding Icon}" 
                                                FontSize="20" 
-                                               FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji, sans-serif"
+                                               FontFamily="{StaticResource EmojiFont}"
                                                HorizontalAlignment="Center" 
                                                VerticalAlignment="Center"/>
                                 </Border>
@@ -229,7 +229,7 @@
                         IsVisible="{Binding HasExtensionWarning}"
                         Margin="0,0,0,10">
                     <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="⚠️" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="⚠️" FontFamily="{StaticResource EmojiFont}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" 
                                   Text="{Binding ExtensionWarning}" 
                                   Foreground="Black"
@@ -253,13 +253,12 @@
 
                 <!-- Footer (Version / Status) -->
                 <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="24,0,24,20" VerticalAlignment="Bottom">
-                    <TextBlock Grid.Column="0"
-                               FontSize="12"
-                               FontWeight="Bold"
-                               Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                               VerticalAlignment="Center">
-                        <Run Text="🖱️ CrossMacro "/><Run Text="{Binding AppVersion}"/>
-                    </TextBlock>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="🖱️ " FontSize="12" FontFamily="{StaticResource EmojiFont}"/>
+                        <TextBlock FontSize="12" FontWeight="Bold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}">
+                            <Run Text="CrossMacro "/><Run Text="{Binding AppVersion}"/>
+                        </TextBlock>
+                    </StackPanel>
                     <TextBlock Grid.Column="2" 
                                Text="{Binding GlobalStatus}" 
                                Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 

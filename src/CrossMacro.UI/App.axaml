@@ -25,6 +25,10 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
   
+    <Application.Resources>
+        <FontFamily x:Key="EmojiFont">avares://CrossMacro.UI/Assets/Fonts/NotoColorEmoji.ttf#Noto Color Emoji</FontFamily>
+    </Application.Resources>
+  
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="/Styles/AppStyles.axaml"/>

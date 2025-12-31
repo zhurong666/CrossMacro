@@ -57,29 +57,36 @@
                 <Grid ColumnDefinitions="*,*">
                     <Button Grid.Column="0" Grid.ColumnSpan="2"
                            Classes="primary"
-                           Content="▶ Play Macro"
                            Command="{Binding PlayMacroAsync}"
                            IsEnabled="{Binding CanPlayMacro}"
                            IsVisible="{Binding !IsPlaying}"
                            HorizontalAlignment="Stretch"
-                           HorizontalContentAlignment="Center"/>
+                           HorizontalContentAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="▶️" FontFamily="{StaticResource EmojiFont}"/>
+                            <TextBlock Text="Play Macro"/>
+                        </StackPanel>
+                    </Button>
                            
                      <Button Grid.Column="0" Grid.ColumnSpan="2"
                            Classes="danger"
-                           Content="🛑 STOP PLAYBACK"
                            Command="{Binding StopPlayback}"
                            IsVisible="{Binding IsPlaying}"
                            HorizontalAlignment="Stretch"
                            HorizontalContentAlignment="Center"
                            FontWeight="Bold"
-                           FontSize="16"/>
+                           FontSize="16">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="🛑" FontFamily="{StaticResource EmojiFont}"/>
+                            <TextBlock Text="STOP PLAYBACK"/>
+                        </StackPanel>
+                     </Button>
                 </Grid>
     
-                <TextBlock Classes="label" 
-                          Text="💡 Tip: Loop Count 0 means infinite loop"
-                          HorizontalAlignment="Center"
-                          FontSize="12"
-                          Opacity="0.7"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <TextBlock Text="💡" FontSize="12" FontFamily="{StaticResource EmojiFont}" Opacity="0.7"/>
+                    <TextBlock Text="Tip: Loop Count 0 means infinite loop" Classes="label" FontSize="12" Opacity="0.7"/>
+                </StackPanel>
 
                 <!-- NEW: Bottom Spacer -->
                 <Rectangle Height="40" Fill="Transparent"/>
