@@ -26,7 +26,7 @@
           ...
         }:
         let
-          crossmacroVersion = "0.8.2";
+          crossmacroVersion = "0.8.3";
 
           # Core system libraries required by .NET on both Linux and macOS
           commonLibs = with pkgs; [
