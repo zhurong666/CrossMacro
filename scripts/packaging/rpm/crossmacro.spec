@@ -14,9 +14,11 @@ Source4:        crossmacro-modules.conf
 BuildArch:      x86_64
 AutoReqProv:    no
 Requires:       glibc, libstdc++, polkit, libXtst, zlib, openssl-libs, systemd-libs
-BuildRequires:  checkpolicy, semodule-utils, systemd-rpm-macros
+BuildRequires:  checkpolicy, semodule-utils
 
-%{?systemd_requires}
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
 
 %description
 A powerful cross-platform mouse and keyboard macro automation tool.
@@ -76,18 +78,31 @@ usermod -aG input crossmacro
 usermod -aG crossmacro crossmacro
 
 %post
-%systemd_post crossmacro.service
+# systemd_post equivalent
+if [ $1 -eq 1 ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || :
+    systemctl enable crossmacro.service >/dev/null 2>&1 || :
+    systemctl start crossmacro.service >/dev/null 2>&1 || :
+fi
 udevadm control --reload-rules && udevadm trigger >/dev/null 2>&1 || :
 semodule -i /usr/share/selinux/packages/%{name}/crossmacro.pp >/dev/null 2>&1 || :
 echo "CrossMacro installed. To use the daemon, add yourself to the 'crossmacro' group:"
 echo "sudo usermod -aG crossmacro \$USER"
 
 %preun
-%systemd_preun crossmacro.service
+# systemd_preun equivalent
+if [ $1 -eq 0 ]; then
+    systemctl stop crossmacro.service >/dev/null 2>&1 || :
+    systemctl disable crossmacro.service >/dev/null 2>&1 || :
+fi
 
 %postun
-%systemd_postun_with_restart crossmacro.service
+# systemd_postun_with_restart equivalent
+if [ $1 -ge 1 ]; then
+    systemctl try-restart crossmacro.service >/dev/null 2>&1 || :
+fi
 if [ $1 -eq 0 ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || :
     semodule -r crossmacro >/dev/null 2>&1 || :
 fi
 
