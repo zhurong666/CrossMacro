@@ -37,34 +37,6 @@ namespace CrossMacro.Platform.Linux.DisplayServer.X11
             }
         }
 
-        /// <summary>
-        /// Sets the absolute cursor position using XWarpPointer (X11-specific)
-        /// This is needed because uinput absolute positioning doesn't move the cursor in X11
-        /// </summary>
-        public void SetAbsolutePositionAsync(int x, int y)
-        {
-            if (_disposed || !IsSupported)
-                return;
-
-            try
-            {
-                var rootWindow = X11Native.XRootWindow(_display, _screen);
-                
-                X11Native.XWarpPointer(
-                    _display,
-                    IntPtr.Zero,      // src_w: no source window
-                    rootWindow,       // dest_w: root window
-                    0, 0,             // src_x, src_y
-                    0, 0,             // src_width, src_height
-                    x, y);            // dest_x, dest_y
-                
-                X11Native.XFlush(_display);  // Critical: ensure command is sent immediately
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "[X11PositionProvider] Error setting absolute position to ({X}, {Y})", x, y);
-            }
-        }
 
         public Task<(int X, int Y)?> GetAbsolutePositionAsync()
         {

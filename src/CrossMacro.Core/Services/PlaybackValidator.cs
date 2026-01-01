@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using CrossMacro.Core.Models;
 using CrossMacro.Core.Services;
@@ -46,10 +45,6 @@ public class PlaybackValidator
             result.AddError("Macro contains invalid/undefined EventType values");
         }
 
-        if (OperatingSystem.IsLinux() && !CanAccessUInput())
-        {
-            result.AddError("/dev/uinput not accessible - check permissions");
-        }
 
         if (_provider == null)
         {
@@ -83,17 +78,7 @@ public class PlaybackValidator
         return result;
     }
 
-    private bool CanAccessUInput()
-    {
-        try
-        {
-            return File.Exists("/dev/uinput") || File.Exists("/dev/input/uinput");
-        }
-        catch
-        {
-            return false;
-        }
-    }
+
 
     private bool IsSpecialControlEvent(MacroEvent e)
     {

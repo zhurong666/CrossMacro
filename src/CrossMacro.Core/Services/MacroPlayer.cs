@@ -21,7 +21,6 @@ public class MacroPlayer : IMacroPlayer, IDisposable
     private readonly IMousePositionProvider? _positionProvider;
     private readonly PlaybackValidator _validator;
     
-    private readonly MethodInfo? _x11SetPositionMethod;
     
     
     private int _currentX;
@@ -63,8 +62,6 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         
         if (_positionProvider != null)
         {
-            // Verify X11 position setter availability (hack for specific Linux provider)
-            _x11SetPositionMethod = GetSetPositionMethod(_positionProvider);
             
             if (_positionProvider.IsSupported)
             {
@@ -540,14 +537,7 @@ public class MacroPlayer : IMacroPlayer, IDisposable
                     
                     if (canPlayAbsolute)
                     {
-                        if (_x11SetPositionMethod != null)
-                        {
-                            _x11SetPositionMethod.Invoke(_positionProvider, new object[] { ev.X, ev.Y });
-                        }
-                        else
-                        {
-                            _inputSimulator.MoveAbsolute(ev.X, ev.Y);
-                        }
+                        _inputSimulator.MoveAbsolute(ev.X, ev.Y);
                         _currentX = ev.X;
                         _currentY = ev.Y;
                     }
@@ -723,9 +713,4 @@ public class MacroPlayer : IMacroPlayer, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Optional Linux-specific method lookup via reflection.")]
-    private static MethodInfo? GetSetPositionMethod(IMousePositionProvider provider)
-    {
-        return provider.GetType().GetMethod("SetAbsolutePositionAsync", new[] { typeof(int), typeof(int) });
-    }
 }
