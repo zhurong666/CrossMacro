@@ -111,8 +111,10 @@ public class WindowsInputSimulator : IInputSimulator
 
     private const int WHEEL_DELTA = 120;
 
-    public void Scroll(int delta)
+    public void Scroll(int delta, bool isHorizontal = false)
     {
+        if (isHorizontal) return; // TODO: Implement MOUSEEVENTF_HWHEEL
+
         int normalizedDelta = Math.Abs(delta) <= 10 ? delta * WHEEL_DELTA : delta;
         
         var input = new INPUT

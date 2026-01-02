@@ -30,21 +30,7 @@ public class WindowsInputCapture : IInputCapture
     private Thread? _messagePumpThread;
     private uint _messagePumpThreadId;
     
-    private static readonly IReadOnlyList<InputDeviceInfo> Devices =
-    [
-        new InputDeviceInfo 
-        { 
-            Name = "System Keyboard", 
-            Path = "VirtualKeyboard", 
-            IsKeyboard = true 
-        },
-        new InputDeviceInfo 
-        { 
-            Name = "System Mouse", 
-            Path = "VirtualMouse", 
-            IsMouse = true 
-        }
-    ];
+
 
     public void Configure(bool captureMouse, bool captureKeyboard)
     {
@@ -52,7 +38,7 @@ public class WindowsInputCapture : IInputCapture
         _captureKeyboard = captureKeyboard;
     }
 
-    public IReadOnlyList<InputDeviceInfo> GetAvailableDevices() => Devices;
+
 
     public Task StartAsync(CancellationToken ct)
     {
