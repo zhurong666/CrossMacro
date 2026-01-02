@@ -1,17 +1,11 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CrossMacro.Core.Models;
 using CrossMacro.Core.Services;
-using CrossMacro.Infrastructure.Serialization;
 using Serilog;
-using CrossMacro.Core;
-using CrossMacro.Infrastructure.Helpers;
 
 namespace CrossMacro.Infrastructure.Services;
 
@@ -22,18 +16,17 @@ public class SchedulerService : ISchedulerService
 {
     private static readonly ILogger Logger = Log.ForContext<SchedulerService>();
     
-    private readonly IMacroFileManager _fileManager;
-    private readonly Func<IMacroPlayer> _playerFactory;
+    private readonly IScheduledTaskRepository _repository;
+    private readonly IScheduledTaskExecutor _executor;
     private readonly ITimeProvider _timeProvider;
     private readonly SynchronizationContext? _syncContext;
     private readonly Lock _lock = new();
+    
     private PeriodicTimer? _periodicTimer;
     private CancellationTokenSource? _cts;
     private Task? _timerTask;
     private bool _isRunning;
     private bool _disposed;
-    
-    private readonly string _scheduleFilePath;
     
     public ObservableCollection<ScheduledTask> Tasks { get; } = new();
     public bool IsRunning => _isRunning;
@@ -41,16 +34,28 @@ public class SchedulerService : ISchedulerService
     public event EventHandler<TaskExecutedEventArgs>? TaskExecuted;
     public event EventHandler<ScheduledTask>? TaskStarting;
     
-    public SchedulerService(IMacroFileManager fileManager, Func<IMacroPlayer> playerFactory, ITimeProvider timeProvider)
+    public SchedulerService(
+        IScheduledTaskRepository repository,
+        IScheduledTaskExecutor executor,
+        ITimeProvider timeProvider)
     {
-        _fileManager = fileManager;
-        _playerFactory = playerFactory;
+        _repository = repository;
+        _executor = executor;
         _timeProvider = timeProvider;
-        // Capture context for safe UI updates
         _syncContext = SynchronizationContext.Current;
 
-        // Follow XDG Base Directory specification
-        _scheduleFilePath = PathHelper.GetConfigFilePath("schedules.json");
+        _executor.TaskExecuted += OnExecutorTaskExecuted;
+        _executor.TaskStarting += OnExecutorTaskStarting;
+    }
+
+    private void OnExecutorTaskExecuted(object? sender, TaskExecutedEventArgs e)
+    {
+        TaskExecuted?.Invoke(this, e);
+    }
+
+    private void OnExecutorTaskStarting(object? sender, ScheduledTask e)
+    {
+        TaskStarting?.Invoke(this, e);
     }
     
     public void AddTask(ScheduledTask task)
@@ -130,7 +135,7 @@ public class SchedulerService : ISchedulerService
         
         if (task != null)
         {
-            await ExecuteTaskAsync(task);
+            await _executor.ExecuteAsync(task);
         }
     }
 
@@ -204,193 +209,62 @@ public class SchedulerService : ISchedulerService
         
         foreach (var task in tasksToRun)
         {
-            await ExecuteTaskAsync(task);
-        }
-    }
-    
-    private async Task ExecuteTaskAsync(ScheduledTask task)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(task.MacroFilePath) || !File.Exists(task.MacroFilePath))
-            {
-                SafeUpdate(() => 
-                {
-                    task.LastStatus = "Macro file not found";
-                    task.LastRunTime = _timeProvider.UtcNow;
-                    
-                    // Disable one-time tasks that failed
-                    if (task.Type == ScheduleType.SpecificTime)
-                    {
-                        task.IsEnabled = false;
-                        task.NextRunTime = null;
-                    }
-                });
-                
-                TaskExecuted?.Invoke(this, new TaskExecutedEventArgs(task, false, "Macro file not found"));
-                return;
-            }
-            
-            var macro = await _fileManager.LoadAsync(task.MacroFilePath);
-            if (macro == null)
-            {
-                SafeUpdate(() =>
-                {
-                    task.LastStatus = "Failed to load macro";
-                    task.LastRunTime = _timeProvider.UtcNow;
-                });
-                TaskExecuted?.Invoke(this, new TaskExecutedEventArgs(task, false, "Failed to load macro"));
-                return;
-            }
-            
-            // Update status immediately before execution starts
-            SafeUpdate(() =>
-            {
-                task.LastStatus = "Running...";
-                task.LastRunTime = _timeProvider.UtcNow;
-            });
-            TaskStarting?.Invoke(this, task);
-            
-            // Create new player instance for this execution to avoid conflicts
-            using var player = _playerFactory();
-            
-            // Apply task-specific playback speed
-            var options = new PlaybackOptions
-            {
-                SpeedMultiplier = task.PlaybackSpeed
-            };
-            
-            await player.PlayAsync(macro, options);
-            
-            // Update status after successful completion
-            SafeUpdate(() =>
-            {
-                task.LastRunTime = _timeProvider.UtcNow;
-                task.LastStatus = "Success";
-                
-                // Calculate next run time for interval tasks
-                if (task.Type == ScheduleType.Interval)
-                {
-                    task.CalculateNextRunTime(_timeProvider.UtcNow);
-                }
-                else if (task.Type == ScheduleType.SpecificTime)
-                {
-                    // One-time task completed, disable it
-                    task.IsEnabled = false;
-                    task.NextRunTime = null;
-                }
-            });
-            
-            TaskExecuted?.Invoke(this, new TaskExecutedEventArgs(task, true, "Executed successfully"));
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("progress"))
-        {
-            // Playback already in progress - reschedule for next interval
-            SafeUpdate(() =>
-            {
-                task.LastStatus = "Skipped (playback busy)";
-                if (task.Type == ScheduleType.Interval)
-                {
-                    task.CalculateNextRunTime(_timeProvider.UtcNow);
-                }
-            });
-            TaskExecuted?.Invoke(this, new TaskExecutedEventArgs(task, false, "Playback was busy, will retry"));
-        }
-        catch (Exception ex)
-        {
-            SafeUpdate(() =>
-            {
-                task.LastStatus = $"Error: {ex.Message}";
-                task.LastRunTime = _timeProvider.UtcNow;
-            });
-            TaskExecuted?.Invoke(this, new TaskExecutedEventArgs(task, false, ex.Message));
-        }
-    }
-
-    private void SafeUpdate(Action action)
-    {
-        if (_syncContext != null)
-        {
-            _syncContext.Post(_ => action(), null);
-        }
-        else
-        {
-            action();
+            await _executor.ExecuteAsync(task);
         }
     }
     
     public async Task SaveAsync()
     {
-        try
+        // Snapshot to avoid locking during async I/O
+        ScheduledTask[] tasksToSave;
+        lock (_lock)
         {
-            var directory = Path.GetDirectoryName(_scheduleFilePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-            
-            var json = JsonSerializer.Serialize(Tasks.ToList(), CrossMacroJsonContext.Default.ListScheduledTask);
-            await File.WriteAllTextAsync(_scheduleFilePath, json);
+            tasksToSave = Tasks.ToArray();
         }
-        catch (Exception ex)
-        {
-            Logger.Warning(ex, "Failed to save scheduled tasks to {Path}", _scheduleFilePath);
-        }
+        
+        await _repository.SaveAsync(tasksToSave);
     }
     
     public async Task LoadAsync()
     {
-        try
+        var tasks = await _repository.LoadAsync();
+        
+        void UpdateCollection(object? state)
         {
-            if (!File.Exists(_scheduleFilePath)) return;
-            
-            var json = await File.ReadAllTextAsync(_scheduleFilePath);
-            var tasks = JsonSerializer.Deserialize(json, CrossMacroJsonContext.Default.ListScheduledTask);
-            
-            if (tasks != null)
+            lock (_lock)
             {
-                void UpdateCollection(object? state)
+                Tasks.Clear();
+                foreach (var task in tasks)
                 {
-                    lock (_lock)
+                    // Recalculate next run time for interval tasks
+                    if (task.IsEnabled && task.Type == ScheduleType.Interval)
                     {
-                        Tasks.Clear();
-                        foreach (var task in tasks)
-                        {
-                            // Recalculate next run time for interval tasks
-                            if (task.IsEnabled && task.Type == ScheduleType.Interval)
-                            {
-                                task.CalculateNextRunTime(_timeProvider.UtcNow);
-                            }
-                            // Check if SpecificTime tasks are still valid
-                            else if (task.Type == ScheduleType.SpecificTime) 
-                            { 
-                                // Ensure UTC comparison
-                                var scheduledUtc = task.ScheduledDateTime?.ToUniversalTime() ?? DateTime.MinValue;
- 
-                                if (scheduledUtc < _timeProvider.UtcNow) 
-                                { 
-                                    task.IsEnabled = false; 
-                                    task.NextRunTime = null; 
-                                } 
-                            }
-                            Tasks.Add(task);
-                        }
+                        task.CalculateNextRunTime(_timeProvider.UtcNow);
                     }
-                }
+                    // Check if SpecificTime tasks are still valid
+                    else if (task.Type == ScheduleType.SpecificTime) 
+                    { 
+                        // Ensure UTC comparison
+                        var scheduledUtc = task.ScheduledDateTime?.ToUniversalTime() ?? DateTime.MinValue;
 
-                if (_syncContext != null)
-                {
-                    _syncContext.Post(UpdateCollection, null);
-                }
-                else
-                {
-                    UpdateCollection(null);
+                        if (scheduledUtc < _timeProvider.UtcNow) 
+                        { 
+                            task.IsEnabled = false; 
+                            task.NextRunTime = null; 
+                        } 
+                    }
+                    Tasks.Add(task);
                 }
             }
         }
-        catch (Exception ex)
+
+        if (_syncContext != null)
         {
-            Logger.Warning(ex, "Failed to load scheduled tasks from {Path}", _scheduleFilePath);
+            _syncContext.Post(UpdateCollection, null);
+        }
+        else
+        {
+            UpdateCollection(null);
         }
     }
     
@@ -398,6 +272,9 @@ public class SchedulerService : ISchedulerService
     {
         if (_disposed) return;
         _disposed = true;
+        
+        _executor.TaskExecuted -= OnExecutorTaskExecuted;
+        _executor.TaskStarting -= OnExecutorTaskStarting;
         
         Stop();
     }
