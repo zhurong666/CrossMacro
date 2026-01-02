@@ -41,6 +41,8 @@ public class TrayIconService : ITrayIconService
                 {
                     _mainWindow.Closing += OnWindowClosing;
                 }
+
+                desktop.ShutdownRequested += OnShutdownRequested;
             }
 
             _trayIcon = new TrayIcon
@@ -109,6 +111,12 @@ public class TrayIconService : ITrayIconService
                     _stopItem.Header = $"Stop ({_viewModel.Settings.PauseHotkey})";
                 break;
         }
+    }
+
+    private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+    {
+        Log.Information("System shutdown requested");
+        _isExiting = true;
     }
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
@@ -258,6 +266,11 @@ public class TrayIconService : ITrayIconService
         if (_mainWindow != null)
         {
             _mainWindow.Closing -= OnWindowClosing;
+        }
+
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.ShutdownRequested -= OnShutdownRequested;
         }
         
         _viewModel.Settings.PropertyChanged -= OnSettingsPropertyChanged;

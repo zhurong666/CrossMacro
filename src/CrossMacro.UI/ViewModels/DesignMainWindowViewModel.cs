@@ -23,8 +23,16 @@ public class DesignMainWindowViewModel : MainWindowViewModel
         new DesignShortcutViewModel(),
         new DesignSettingsViewModel(),
         new MockGlobalHotkeyService(),
-        new MockMousePositionProvider())
+        new MockMousePositionProvider(),
+        new MockEnvironmentInfoProvider(),
+        null)
     {
+    }
+
+    private class MockEnvironmentInfoProvider : IEnvironmentInfoProvider
+    {
+        public DisplayEnvironment CurrentEnvironment => DisplayEnvironment.Windows;
+        public bool WindowManagerHandlesCloseButton => false;
     }
 
     private class DesignRecordingViewModel : RecordingViewModel
@@ -80,7 +88,7 @@ public class DesignMainWindowViewModel : MainWindowViewModel
 
     private class DesignTextExpansionViewModel : TextExpansionViewModel
     {
-        public DesignTextExpansionViewModel() : base(new MockTextExpansionStorageService(), new MockDialogService())
+        public DesignTextExpansionViewModel() : base(new MockTextExpansionStorageService(), new MockDialogService(), new MockEnvironmentInfoProvider())
         {
             Expansions = new ObservableCollection<TextExpansion>
             {

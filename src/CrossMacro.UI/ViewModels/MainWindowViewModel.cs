@@ -3,8 +3,6 @@ using Avalonia.Threading;
 using Avalonia.Controls.Notifications;
 using CrossMacro.Core.Models;
 using CrossMacro.Core.Services;
-using CrossMacro.Platform.Linux.DisplayServer;
-using CrossMacro.Platform.Linux.DisplayServer.Wayland;
 using CrossMacro.UI.Models;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -18,6 +16,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly IGlobalHotkeyService _hotkeyService;
     private readonly IMousePositionProvider _positionProvider;
+    private readonly IExtensionStatusNotifier? _extensionNotifier;
     
     private string? _extensionWarning;
     private bool _hasExtensionWarning;
@@ -156,7 +155,9 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         ShortcutViewModel shortcuts,
         SettingsViewModel settings,
         IGlobalHotkeyService hotkeyService,
-        IMousePositionProvider positionProvider)
+        IMousePositionProvider positionProvider,
+        IEnvironmentInfoProvider environmentInfo,
+        IExtensionStatusNotifier? extensionNotifier = null)
     {
         Recording = recording;
         Playback = playback;
@@ -167,17 +168,10 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         Settings = settings;
         _hotkeyService = hotkeyService;
         _positionProvider = positionProvider;
+        _extensionNotifier = extensionNotifier;
         
-        // Hide close button on Hyprland
-        if (OperatingSystem.IsLinux())
-        {
-            var compositor = CompositorDetector.DetectCompositor();
-            IsCloseButtonVisible = compositor != CompositorType.HYPRLAND;
-        }
-        else
-        {
-            IsCloseButtonVisible = true;
-        }
+        // Use abstraction for close button visibility (DIP: depends on Core interface)
+        IsCloseButtonVisible = !environmentInfo.WindowManagerHandlesCloseButton;
         
         // Wire up cross-ViewModel communication
         SetupViewModelCommunication();
@@ -358,12 +352,11 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     
     private void SetupExtensionStatusHandling()
     {
-        if (_positionProvider is GnomePositionProvider gnomeProvider)
+        // Subscribe via Core interface - no platform-specific type checking needed
+        if (_extensionNotifier != null)
         {
-            gnomeProvider.ExtensionStatusChanged += OnExtensionStatusChanged;
+            _extensionNotifier.ExtensionStatusChanged += OnExtensionStatusChanged;
         }
-        
-
     }
     
     public string? ExtensionWarning
@@ -502,9 +495,9 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         _hotkeyService.ErrorOccurred -= OnGlobalHotkeyError;
         
         // Unsubscribe from extension status events
-        if (_positionProvider is GnomePositionProvider gnomeProvider)
+        if (_extensionNotifier != null)
         {
-            gnomeProvider.ExtensionStatusChanged -= OnExtensionStatusChanged;
+            _extensionNotifier.ExtensionStatusChanged -= OnExtensionStatusChanged;
         }
         
         // Dispose child ViewModels that implement IDisposable

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -18,22 +19,37 @@ public partial class TextExpansionViewModel : ViewModelBase
 {
     private readonly ITextExpansionStorageService _storageService;
     private readonly IDialogService _dialogService;
+    private readonly IEnvironmentInfoProvider _environmentInfoProvider;
 
     private string _triggerInput = string.Empty;
     private string _replacementInput = string.Empty;
     private ObservableCollection<TextExpansion> _expansions = new();
     
-    public TextExpansionViewModel(ITextExpansionStorageService storageService, IDialogService dialogService)
+    public TextExpansionViewModel(
+        ITextExpansionStorageService storageService, 
+        IDialogService dialogService,
+        IEnvironmentInfoProvider environmentInfoProvider)
     {
         _storageService = storageService;
-
         _dialogService = dialogService;
+        _environmentInfoProvider = environmentInfoProvider;
         
         // Load existing expansions asynchronously
         InitializationTask = LoadExpansionsAsync();
     }
 
     public Task InitializationTask { get; private set; } = Task.CompletedTask;
+    
+    public bool IsPasteMethodVisible => IsLinuxEnvironment(_environmentInfoProvider.CurrentEnvironment);
+
+    private static bool IsLinuxEnvironment(DisplayEnvironment env)
+    {
+        return env == DisplayEnvironment.LinuxX11 ||
+               env == DisplayEnvironment.LinuxWayland ||
+               env == DisplayEnvironment.LinuxHyprland ||
+               env == DisplayEnvironment.LinuxKDE ||
+               env == DisplayEnvironment.LinuxGnome;
+    }
 
     private async Task LoadExpansionsAsync()
     {
@@ -45,6 +61,17 @@ public partial class TextExpansionViewModel : ViewModelBase
             _expansions.Add(expansion);
         }
     }
+
+    private PasteMethod _selectedPasteMethod = PasteMethod.CtrlV;
+
+    public PasteMethod SelectedPasteMethod
+    {
+        get => _selectedPasteMethod;
+        set => SetProperty(ref _selectedPasteMethod, value);
+    }
+    
+    // Expose enum values for UI
+    public IEnumerable<PasteMethod> PasteMethods { get; } = Enum.GetValues<PasteMethod>();
 
     public string TriggerInput
     {
@@ -89,7 +116,7 @@ public partial class TextExpansionViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanAddExpansion))]
     private async Task AddExpansionAsync()
     {
-        var newExpansion = new TextExpansion(TriggerInput, ReplacementInput);
+        var newExpansion = new TextExpansion(TriggerInput, ReplacementInput, true, SelectedPasteMethod);
         
         // Add to UI collection
         Expansions.Insert(0, newExpansion);
@@ -103,6 +130,8 @@ public partial class TextExpansionViewModel : ViewModelBase
         // Clear inputs
         TriggerInput = string.Empty;
         ReplacementInput = string.Empty;
+        // Reset method to default
+        SelectedPasteMethod = PasteMethod.CtrlV; 
     }
 
 
