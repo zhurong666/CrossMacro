@@ -44,7 +44,7 @@ public class InputSimulatorPool : IDisposable
         
         _warmUpCts = new CancellationTokenSource();
         
-        await Task.Run(() =>
+        await Task.Run(async () =>
         {
             try
             {
@@ -58,7 +58,9 @@ public class InputSimulatorPool : IDisposable
                     }
                 }
                 
-                Thread.Sleep(100);
+
+                
+                await Task.Delay(100);
                 
                 if (screenWidth > 0 && screenHeight > 0)
                 {
@@ -120,7 +122,7 @@ public class InputSimulatorPool : IDisposable
         
         if (device != null)
         {
-            _ = Task.Run(() => WarmUpReplacement(screenWidth, screenHeight));
+            _ = Task.Run(async () => await WarmUpReplacementAsync(screenWidth, screenHeight));
             return device;
         }
         
@@ -147,10 +149,10 @@ public class InputSimulatorPool : IDisposable
             Log.Debug(ex, "[InputSimulatorPool] Error disposing returned device");
         }
         
-        _ = Task.Run(() => WarmUpReplacement(screenWidth, screenHeight));
+        _ = Task.Run(async () => await WarmUpReplacementAsync(screenWidth, screenHeight));
     }
     
-    private void WarmUpReplacement(int screenWidth, int screenHeight)
+    private async Task WarmUpReplacementAsync(int screenWidth, int screenHeight)
     {
         if (_disposed) return;
         
@@ -158,7 +160,7 @@ public class InputSimulatorPool : IDisposable
         {
             bool needsAbsolute = screenWidth > 0 && screenHeight > 0;
             
-            Thread.Sleep(50);
+            await Task.Delay(50);
             
             using (_lock.EnterScope())
             {

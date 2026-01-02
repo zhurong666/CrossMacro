@@ -1,9 +1,11 @@
 using System;
+using CrossMacro.Core.Models;
 
 namespace CrossMacro.Core.Services.Playback;
 
 /// <summary>
-/// Interface for executing input events (mouse, keyboard)
+/// Interface for executing input events (mouse, keyboard).
+/// Implementations compose IInputSimulator with state trackers.
 /// </summary>
 public interface IEventExecutor : IDisposable
 {
@@ -46,4 +48,10 @@ public interface IEventExecutor : IDisposable
     /// Whether any mouse button is currently pressed
     /// </summary>
     bool IsMouseButtonPressed { get; }
+    
+    /// <summary>
+    /// Execute a macro event with full handling
+    /// </summary>
+    void Execute(MacroEvent ev, bool isRecordedAbsolute);
 }
+
