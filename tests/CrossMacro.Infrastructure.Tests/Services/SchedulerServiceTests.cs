@@ -12,23 +12,21 @@ namespace CrossMacro.Infrastructure.Tests.Services;
 
 public class SchedulerServiceTests
 {
-    private readonly IMacroFileManager _fileManager;
-    private readonly Func<IMacroPlayer> _playerFactory;
+    private readonly IScheduledTaskRepository _repository;
+    private readonly IScheduledTaskExecutor _executor;
     private readonly ITimeProvider _timeProvider;
     private readonly SchedulerService _service;
-    private readonly IMacroPlayer _player;
 
     public SchedulerServiceTests()
     {
-        _fileManager = Substitute.For<IMacroFileManager>();
-        _player = Substitute.For<IMacroPlayer>();
-        _playerFactory = () => _player;
+        _repository = Substitute.For<IScheduledTaskRepository>();
+        _executor = Substitute.For<IScheduledTaskExecutor>();
         _timeProvider = Substitute.For<ITimeProvider>();
         
         // Default time
         _timeProvider.UtcNow.Returns(new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc));
 
-        _service = new SchedulerService(_fileManager, _playerFactory, _timeProvider);
+        _service = new SchedulerService(_repository, _executor, _timeProvider);
     }
 
     [Fact]

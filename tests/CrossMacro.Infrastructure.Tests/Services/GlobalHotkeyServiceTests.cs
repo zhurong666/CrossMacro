@@ -11,7 +11,11 @@ namespace CrossMacro.Infrastructure.Tests.Services;
 public class GlobalHotkeyServiceTests
 {
     private readonly IHotkeyConfigurationService _config;
-    private readonly IKeyboardLayoutService _layout;
+    private readonly IHotkeyParser _parser;
+    private readonly IHotkeyMatcher _matcher;
+    private readonly IModifierStateTracker _modifierTracker;
+    private readonly IHotkeyStringBuilder _stringBuilder;
+    private readonly IMouseButtonMapper _mouseButtonMapper;
     private readonly IInputCapture _inputCapture;
     private readonly GlobalHotkeyService _service;
 
@@ -25,21 +29,41 @@ public class GlobalHotkeyServiceTests
             PauseHotkey = "F11" 
         });
 
-        _layout = Substitute.For<IKeyboardLayoutService>();
-        // Mock Key Code resolution
-        _layout.GetKeyCode("F9").Returns(67); // 59 + 8 = 67
-        _layout.GetKeyCode("F10").Returns(68);
-        _layout.GetKeyCode("F11").Returns(69);
+        // Mock new services
+        _parser = Substitute.For<IHotkeyParser>();
+        _matcher = Substitute.For<IHotkeyMatcher>();
+        _modifierTracker = Substitute.For<IModifierStateTracker>();
+        _stringBuilder = Substitute.For<IHotkeyStringBuilder>();
+        _mouseButtonMapper = Substitute.For<IMouseButtonMapper>();
+
+        // Setup Parser behavior to return valid mappings
+        var f9Mapping = new HotkeyMapping { MainKey = 67 }; // F9
+        var f10Mapping = new HotkeyMapping { MainKey = 68 }; // F10
+        var f11Mapping = new HotkeyMapping { MainKey = 69 }; // F11
+        var numpadMapping = new HotkeyMapping { MainKey = 82 }; // Numpad0
+
+        _parser.Parse("F9").Returns(f9Mapping);
+        _parser.Parse("F10").Returns(f10Mapping);
+        _parser.Parse("F11").Returns(f11Mapping);
+        _parser.Parse("Numpad0").Returns(numpadMapping);
+
+        // Setup Matcher behavior
+        _matcher.TryMatch(67, Arg.Any<IReadOnlySet<int>>(), f9Mapping, "Recording").Returns(true);
+        _matcher.TryMatch(Arg.Is<int>(x => x != 67), Arg.Any<IReadOnlySet<int>>(), Arg.Any<HotkeyMapping>(), Arg.Any<string>()).Returns(false);
+
+        // Setup Modifier Tracker
+        _modifierTracker.CurrentModifiers.Returns(new HashSet<int>());
 
         _inputCapture = Substitute.For<IInputCapture>();
-        _inputCapture.GetAvailableDevices().Returns(new List<InputDeviceInfo>
-        {
-            new InputDeviceInfo { IsKeyboard = true, Name = "Test Keyboard", Path = "/dev/input/event0" }
-        });
+
 
         _service = new GlobalHotkeyService(
             _config, 
-            _layout, 
+            _parser,
+            _matcher,
+            _modifierTracker,
+            _stringBuilder,
+            _mouseButtonMapper,
             () => _inputCapture);
     }
 
@@ -87,18 +111,17 @@ public class GlobalHotkeyServiceTests
         // Assert
         Assert.False(eventFired);
     }
+    
     [Fact]
-    public void UpdateHotkeys_ParsesNumpadKeys_Correctly()
+    public void UpdateHotkeys_Parses_Correctly()
     {
-        // Arrange
-        // Mock layout service to return -1 (not found) to ensure GlobalHotkeyService's internal logic is used
-        _layout.GetKeyCode(Arg.Any<string>()).Returns(-1);
-
         // Act
-        // Set Numpad0 (which maps to 82 in our internal list)
+        // Set Numpad0 which we mocked to return MainKey 82
         _service.UpdateHotkeys("Numpad0", "F10", "F11");
 
         // Assert
+        // GlobalHotkeyService.RecordingHotkeyCode property uses _recordingHotkey.MainKey
+        // _recordingHotkey is set via _parser.Parse("Numpad0")
         Assert.Equal(82, _service.RecordingHotkeyCode);
     }
 }

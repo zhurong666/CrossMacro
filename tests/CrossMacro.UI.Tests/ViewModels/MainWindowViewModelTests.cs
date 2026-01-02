@@ -51,10 +51,14 @@ public class MainWindowViewModelTests
         _filesDialogService = Substitute.For<IDialogService>();
         _filesViewModel = new FilesViewModel(_fileManager, _filesDialogService);
 
-        // Fix: TextExpansionViewModel takes (ITextExpansionStorageService, IDialogService)
+        // Fix: TextExpansionViewModel takes (ITextExpansionStorageService, IDialogService, IEnvironmentInfoProvider)
         var textExpansionStorage = Substitute.For<ITextExpansionStorageService>();
         var dialogService = Substitute.For<IDialogService>();
-        _textExpansionViewModel = new TextExpansionViewModel(textExpansionStorage, dialogService);
+        var environmentInfo = Substitute.For<IEnvironmentInfoProvider>();
+        environmentInfo.WindowManagerHandlesCloseButton.Returns(false);
+        environmentInfo.CurrentEnvironment.Returns(DisplayEnvironment.Windows);
+
+        _textExpansionViewModel = new TextExpansionViewModel(textExpansionStorage, dialogService, environmentInfo);
 
         // ScheduleViewModel
         _schedulerService = Substitute.For<ISchedulerService>();
@@ -69,6 +73,11 @@ public class MainWindowViewModelTests
         var textExpansionService = Substitute.For<ITextExpansionService>();
         _settingsViewModel = new SettingsViewModel(_hotkeyService, _settingsService, textExpansionService, hotkeySettings);
 
+        // Environment info provider mock (reusing existing mock)
+        // var environmentInfo = Substitute.For<IEnvironmentInfoProvider>();
+        // environmentInfo.WindowManagerHandlesCloseButton.Returns(false);
+        // environmentInfo.CurrentEnvironment.Returns(DisplayEnvironment.Windows);
+
         // Create SUT
         _viewModel = new MainWindowViewModel(
             _recordingViewModel,
@@ -79,7 +88,9 @@ public class MainWindowViewModelTests
             _shortcutViewModel,
             _settingsViewModel,
             _hotkeyService,
-            _positionProvider);
+            _positionProvider,
+            environmentInfo,
+            null);
     }
 
     [Fact]

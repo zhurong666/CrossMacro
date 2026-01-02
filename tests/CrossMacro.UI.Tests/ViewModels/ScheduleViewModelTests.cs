@@ -61,7 +61,7 @@ public class ScheduleViewModelTests
 
         // Assert
         _schedulerService.Received(1).RemoveTask(task.Id);
-        _schedulerService.Received(1).SaveAsync();
+        _ = _schedulerService.Received(1).SaveAsync();
     }
 
     [Fact]

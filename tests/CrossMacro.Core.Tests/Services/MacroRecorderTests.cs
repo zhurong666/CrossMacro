@@ -2,27 +2,49 @@ namespace CrossMacro.Core.Tests.Services;
 
 using CrossMacro.Core.Models;
 using CrossMacro.Core.Services;
+using CrossMacro.Core.Services.Recording.Processors;
+using CrossMacro.Core.Services.Recording.Strategies;
 using FluentAssertions;
 using NSubstitute;
+using System.Threading;
 
 /// <summary>
 /// Tests for MacroRecorder focusing on initialization and error handling
 /// </summary>
 public class MacroRecorderTests
 {
-    private readonly IMousePositionProvider _positionProvider;
+    private readonly Func<IInputCapture> _captureFactory;
+    private readonly ICoordinateStrategyFactory _strategyFactory;
+    private readonly Func<ICoordinateStrategy, IInputEventProcessor> _processorFactory;
+    
+    // Mocks returned by factories
+    private readonly IInputCapture _capture;
+    private readonly ICoordinateStrategy _strategy;
+    private readonly IInputEventProcessor _processor;
 
     public MacroRecorderTests()
     {
-        _positionProvider = Substitute.For<IMousePositionProvider>();
-        _positionProvider.IsSupported.Returns(true);
+        _capture = Substitute.For<IInputCapture>();
+        _captureFactory = () => _capture;
+        
+        _strategy = Substitute.For<ICoordinateStrategy>();
+        _strategyFactory = Substitute.For<ICoordinateStrategyFactory>();
+        _strategyFactory.Create(Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>()).Returns(_strategy);
+        
+        _processor = Substitute.For<IInputEventProcessor>();
+        _processorFactory = (s) => _processor;
+    }
+
+    private MacroRecorder CreateRecorder()
+    {
+        return new MacroRecorder(_captureFactory, _strategyFactory, _processorFactory, () => Substitute.For<IInputSimulator>());
     }
 
     [Fact]
     public void IsRecording_Initially_IsFalse()
     {
         // Arrange
-        var recorder = new MacroRecorder(_positionProvider);
+        var recorder = CreateRecorder();
 
         // Assert
         recorder.IsRecording.Should().BeFalse();
@@ -32,7 +54,7 @@ public class MacroRecorderTests
     public async Task StartRecordingAsync_NoMouseNoKeyboard_ThrowsArgumentException()
     {
         // Arrange
-        var recorder = new MacroRecorder(_positionProvider);
+        var recorder = CreateRecorder();
 
         // Act
         var act = async () => await recorder.StartRecordingAsync(
@@ -48,7 +70,7 @@ public class MacroRecorderTests
     public void StopRecording_WhenNotRecording_ThrowsInvalidOperationException()
     {
         // Arrange
-        var recorder = new MacroRecorder(_positionProvider);
+        var recorder = CreateRecorder();
 
         // Act
         var act = () => recorder.StopRecording();
@@ -62,7 +84,7 @@ public class MacroRecorderTests
     public void GetCurrentRecording_WhenNotRecording_ReturnsNull()
     {
         // Arrange
-        var recorder = new MacroRecorder(_positionProvider);
+        var recorder = CreateRecorder();
 
         // Act
         var result = recorder.GetCurrentRecording();
@@ -75,7 +97,7 @@ public class MacroRecorderTests
     public void Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
-        var recorder = new MacroRecorder(_positionProvider);
+        var recorder = CreateRecorder();
 
         // Act
         var act = () =>
@@ -89,95 +111,64 @@ public class MacroRecorderTests
     }
 
     [Fact]
-    public void Constructor_WithUnsupportedPositionProvider_DoesNotThrow()
-    {
-        // Arrange
-        var unsupportedProvider = Substitute.For<IMousePositionProvider>();
-        unsupportedProvider.IsSupported.Returns(false);
-
-        // Act
-        var act = () => new MacroRecorder(unsupportedProvider);
-
-        // Assert
-        act.Should().NotThrow();
-    }
-
-    [Fact]
     public async Task StartRecordingAsync_CapturesEvents_WhenInputReceived()
     {
         // Arrange
-        var capture = Substitute.For<IInputCapture>();
-        capture.GetAvailableDevices().Returns(new List<InputDeviceInfo>
-        {
-            new InputDeviceInfo { IsMouse = true, Name = "Mouse" },
-            new InputDeviceInfo { IsKeyboard = true, Name = "Keyboard" }
-        });
 
-        // Use a factory that returns our mock
-        var recorder = new MacroRecorder(_positionProvider, inputCaptureFactory: () => capture);
-        _positionProvider.GetAbsolutePositionAsync().Returns(Task.FromResult<(int X, int Y)?>( (0, 0) ));
+
+        var recorder = CreateRecorder();
         
         var receivedEvents = new List<MacroEvent>();
         recorder.EventRecorded += (s, e) => receivedEvents.Add(e);
+
+        // Setup processor to return an event when Process is called
+        _processor.Process(Arg.Any<InputCaptureEventArgs>(), Arg.Any<long>())
+            .Returns(new MacroEvent { Type = EventType.KeyPress, KeyCode = 30 });
 
         // Act
         await recorder.StartRecordingAsync(true, true);
         
         // Simulate input
-        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
+        _capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
             this, 
-            new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 1 }); // Key Press A
-
-        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
-            this, 
-            new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 0 }); // Key Release A
-
-        recorder.StopRecording();
-
-        // Assert
-        receivedEvents.Should().HaveCount(2);
-        receivedEvents[0].Type.Should().Be(EventType.KeyPress);
-        receivedEvents[0].KeyCode.Should().Be(30);
-        receivedEvents[1].Type.Should().Be(EventType.KeyRelease);
-        
-        var recording = recorder.GetCurrentRecording();
-        recording.Should().NotBeNull();
-        recording!.Events.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public async Task StartRecordingAsync_IgnoresKeys_WhenSpecified()
-    {
-        // Arrange
-        var capture = Substitute.For<IInputCapture>();
-        capture.GetAvailableDevices().Returns(new List<InputDeviceInfo>
-        {
-            new InputDeviceInfo { IsMouse = true, Name = "Mouse" },
-            new InputDeviceInfo { IsKeyboard = true, Name = "Keyboard" }
-        });
-
-        var recorder = new MacroRecorder(_positionProvider, inputCaptureFactory: () => capture);
-        _positionProvider.GetAbsolutePositionAsync().Returns(Task.FromResult<(int X, int Y)?>( (0, 0) ));
-        
-        var receivedEvents = new List<MacroEvent>();
-        recorder.EventRecorded += (s, e) => receivedEvents.Add(e);
-
-        // Act
-        // Ignore key code 30 (A)
-        await recorder.StartRecordingAsync(true, true, ignoredKeys: new[] { 30 });
-        
-        // Simulate ignored key
-        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
-            this, new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 1 });
-
-        // Simulate allowed key (31 = S)
-        capture.InputReceived += Raise.Event<EventHandler<InputCaptureEventArgs>>(
-            this, new InputCaptureEventArgs { Type = InputEventType.Key, Code = 31, Value = 1 });
+            new InputCaptureEventArgs { Type = InputEventType.Key, Code = 30, Value = 1 });
 
         recorder.StopRecording();
 
         // Assert
         receivedEvents.Should().HaveCount(1);
-        receivedEvents[0].KeyCode.Should().Be(31);
+        receivedEvents[0].Type.Should().Be(EventType.KeyPress);
+        receivedEvents[0].KeyCode.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task StartRecordingAsync_InitializesStrategyAndProcessor()
+    {
+        // Arrange
+        var recorder = CreateRecorder();
+
+        // Act
+        await recorder.StartRecordingAsync(true, true);
+        
+        // Assert
+        await _strategy.Received(1).InitializeAsync(Arg.Any<CancellationToken>());
+        _processor.Received(1).Configure(true, true, Arg.Is<HashSet<int>>(x => x == null), true);
+    }
+    [Fact]
+    public async Task StartRecordingAsync_WithForceRelative_PerformsCornerReset()
+    {
+        // Arrange
+        var mockSimulator = Substitute.For<IInputSimulator>();
+        var recorder = new MacroRecorder(_captureFactory, _strategyFactory, _processorFactory, () => mockSimulator);
+
+        // Act
+        await recorder.StartRecordingAsync(true, true, forceRelative: true, skipInitialZero: false);
+        
+        // Assert
+        // Verify Corner Reset logic: Initialize() then MoveRelative(-20000, -20000)
+        mockSimulator.Received(1).Initialize();
+        mockSimulator.Received(1).MoveRelative(-20000, -20000);
+        
+        await _strategy.Received(1).InitializeAsync(Arg.Any<CancellationToken>());
     }
 }

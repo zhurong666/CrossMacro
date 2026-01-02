@@ -60,7 +60,7 @@ public class ShortcutViewModelTests
 
         // Assert
         _shortcutService.Received(1).RemoveTask(task.Id);
-        _shortcutService.Received(1).SaveAsync();
+        _ = _shortcutService.Received(1).SaveAsync();
     }
 
     [Fact]

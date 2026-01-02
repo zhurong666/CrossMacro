@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CrossMacro.Core.Models;
+using CrossMacro.Core.Services;
 using CrossMacro.Infrastructure.Services;
 using CrossMacro.UI.Services;
 using CrossMacro.UI.ViewModels;
@@ -15,17 +16,19 @@ public class TextExpansionViewModelTests
 {
     private readonly ITextExpansionStorageService _storageService;
     private readonly IDialogService _dialogService;
+    private readonly IEnvironmentInfoProvider _environmentInfoProvider;
     private readonly TextExpansionViewModel _viewModel;
 
     public TextExpansionViewModelTests()
     {
         _storageService = Substitute.For<ITextExpansionStorageService>();
         _dialogService = Substitute.For<IDialogService>();
+        _environmentInfoProvider = Substitute.For<IEnvironmentInfoProvider>();
         
         // Setup initial load
         _storageService.LoadAsync().Returns(new List<TextExpansion>());
 
-        _viewModel = new TextExpansionViewModel(_storageService, _dialogService);
+        _viewModel = new TextExpansionViewModel(_storageService, _dialogService, _environmentInfoProvider);
     }
 
     [Fact]
@@ -36,7 +39,7 @@ public class TextExpansionViewModelTests
         _storageService.LoadAsync().Returns(list);
         
         // Re-create VM to trigger constructor load
-        var vm = new TextExpansionViewModel(_storageService, _dialogService);
+        var vm = new TextExpansionViewModel(_storageService, _dialogService, _environmentInfoProvider);
         
         // Wait for async load deterministically
         await vm.InitializationTask; 

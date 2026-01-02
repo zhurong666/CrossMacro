@@ -1,5 +1,6 @@
 using CrossMacro.Infrastructure.Services;
 using CrossMacro.Platform.Linux.Services;
+using CrossMacro.Platform.Linux.Services.Keyboard;
 using FluentAssertions;
 using Xunit;
 
@@ -11,7 +12,10 @@ public class LinuxKeyboardLayoutServiceExtendedTests
 
     public LinuxKeyboardLayoutServiceExtendedTests()
     {
-        _service = new LinuxKeyboardLayoutService();
+        var layoutDetector = new LinuxLayoutDetector();
+        var xkbState = new XkbStateManager();
+        var keyMapper = new LinuxKeyCodeMapper(xkbState);
+        _service = new LinuxKeyboardLayoutService(layoutDetector, keyMapper, xkbState);
     }
 
     [Theory]

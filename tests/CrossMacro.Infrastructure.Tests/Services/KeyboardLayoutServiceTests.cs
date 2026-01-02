@@ -1,5 +1,6 @@
 using CrossMacro.Infrastructure.Services;
 using CrossMacro.Platform.Linux.Services;
+using CrossMacro.Platform.Linux.Services.Keyboard;
 using Xunit;
 
 namespace CrossMacro.Infrastructure.Tests.Services;
@@ -12,7 +13,10 @@ public class LinuxKeyboardLayoutServiceTests
     {
         // On non-Linux (e.g. CI environments without X) this might log errors but should not throw.
         // We rely on fallback logic which is what we are testing here mainly.
-        _service = new LinuxKeyboardLayoutService();
+        var layoutDetector = new LinuxLayoutDetector();
+        var xkbState = new XkbStateManager();
+        var keyMapper = new LinuxKeyCodeMapper(xkbState);
+        _service = new LinuxKeyboardLayoutService(layoutDetector, keyMapper, xkbState);
     }
 
     [Fact]
