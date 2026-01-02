@@ -16,7 +16,7 @@ public interface IInputSimulator : IDisposable
     
     void MouseButton(int button, bool pressed);
     
-    void Scroll(int delta);
+    void Scroll(int delta, bool isHorizontal = false);
     
     void KeyPress(int keyCode, bool pressed);
     
