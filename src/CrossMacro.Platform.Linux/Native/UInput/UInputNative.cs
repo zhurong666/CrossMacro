@@ -32,6 +32,7 @@ public static class UInputNative
     // Relative axes
     public const ushort REL_X = 0x00;
     public const ushort REL_Y = 0x01;
+    public const ushort REL_HWHEEL = 0x06;
     public const ushort REL_WHEEL = 0x08;
     
     // Absolute axes
@@ -42,6 +43,11 @@ public static class UInputNative
     public const ushort BTN_LEFT = 0x110;
     public const ushort BTN_RIGHT = 0x111;
     public const ushort BTN_MIDDLE = 0x112;
+    public const ushort BTN_SIDE = 0x113;
+    public const ushort BTN_EXTRA = 0x114;
+    public const ushort BTN_FORWARD = 0x115;
+    public const ushort BTN_BACK = 0x116;
+    public const ushort BTN_TASK = 0x117;
     
     // Touchpad buttons
     public const ushort BTN_TOUCH = 0x14a;
@@ -161,4 +167,13 @@ public static class UInputNative
     /// </summary>
     [DllImport(LibC, SetLastError = true)]
     public static extern int ioctl(int fd, uint request, ref uinput_user_dev value);
+    
+    /// <summary>
+    /// Helper to check if a code corresponds to a mouse button.
+    /// </summary>
+    public static bool IsMouseButton(ushort code)
+    {
+        // Basic mouse buttons + potentially others
+        return code >= BTN_LEFT && code <= BTN_TASK;
+    }
 }

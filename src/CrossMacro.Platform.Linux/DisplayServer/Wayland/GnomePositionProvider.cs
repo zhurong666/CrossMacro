@@ -16,7 +16,7 @@ namespace CrossMacro.Platform.Linux.DisplayServer.Wayland
         Task<(int width, int height)> GetResolutionAsync();
     }
 
-    public class GnomePositionProvider : IMousePositionProvider
+    public class GnomePositionProvider : IMousePositionProvider, IExtensionStatusNotifier
     {
         // Embedded GNOME Shell Extension files - auto-deployed if missing
         private const string EXTENSION_JS = @"import Gio from 'gi://Gio';

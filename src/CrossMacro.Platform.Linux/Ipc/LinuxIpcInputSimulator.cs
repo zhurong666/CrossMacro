@@ -26,6 +26,7 @@ public class LinuxIpcInputSimulator : IInputSimulator
     private const ushort REL_X = 0x00;
     private const ushort REL_Y = 0x01;
     private const ushort REL_WHEEL = 0x08;
+    private const ushort REL_HWHEEL = 0x06;
     
     private const ushort ABS_X = 0x00;
     private const ushort ABS_Y = 0x01;
@@ -121,11 +122,12 @@ public class LinuxIpcInputSimulator : IInputSimulator
         _client.SimulateEvents(events);
     }
 
-    public void Scroll(int delta)
+    public void Scroll(int delta, bool isHorizontal = false)
     {
+         ushort axis = isHorizontal ? REL_HWHEEL : REL_WHEEL;
          Span<(ushort, ushort, int)> events = stackalloc (ushort, ushort, int)[]
         {
-            (EV_REL, REL_WHEEL, delta),
+            (EV_REL, axis, delta),
             (EV_SYN, SYN_REPORT, 0)
         };
         _client.SimulateEvents(events);

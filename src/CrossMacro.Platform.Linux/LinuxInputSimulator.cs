@@ -18,7 +18,7 @@ public class LinuxInputSimulator : IInputSimulator
         {
             try
             {
-                return File.Exists("/dev/uinput") || File.Exists("/dev/input/uinput");
+                return File.Exists(LinuxConstants.UInputDevicePath) || File.Exists(LinuxConstants.UInputAlternatePath);
             }
             catch
             {
@@ -55,9 +55,10 @@ public class LinuxInputSimulator : IInputSimulator
         _device?.EmitButton(button, pressed);
     }
     
-    public void Scroll(int delta)
+    public void Scroll(int delta, bool isHorizontal = false)
     {
-        _device?.SendEvent(Native.UInput.UInputNative.EV_REL, Native.UInput.UInputNative.REL_WHEEL, delta);
+        ushort axis = isHorizontal ? Native.UInput.UInputNative.REL_HWHEEL : Native.UInput.UInputNative.REL_WHEEL;
+        _device?.SendEvent(Native.UInput.UInputNative.EV_REL, axis, delta);
         _device?.SendEvent(Native.UInput.UInputNative.EV_SYN, Native.UInput.UInputNative.SYN_REPORT, 0);
     }
     

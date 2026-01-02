@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using CrossMacro.Platform.Linux.Native.Evdev;
 using Serilog;
 
@@ -21,118 +22,143 @@ namespace CrossMacro.Platform.Linux.Native.UInput
 
         public void CreateVirtualInputDevice()
         {
-            Log.Information("[UInputDevice] Creating virtual input device (Mouse + Keyboard, Resolution: {Width}x{Height})...", _width, _height);
-            
-            // Try opening /dev/uinput
-            _fd = UInputNative.open("/dev/uinput", UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
-            if (_fd < 0)
+            try
             {
-                // Try alternative path
-                _fd = UInputNative.open("/dev/input/uinput", UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
-            }
-
-            if (_fd < 0)
-            {
-                var errno = Marshal.GetLastWin32Error();
-                Log.Error("[UInputDevice] Failed to open /dev/uinput. Errno: {Errno}", errno);
-                throw new IOException($"Cannot open /dev/uinput (Errno: {errno}). Check permissions (sudo chmod +0666 /dev/uinput).");
-            }
-
-            Log.Debug("[UInputDevice] Opened /dev/uinput with fd: {Fd}", _fd);
-
-            try 
-            {
-                // Enable mouse button events (always needed)
-                EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_KEY);
-                EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_LEFT);
-                EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_RIGHT);
-                EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_MIDDLE);
-
-                if (_width > 0 && _height > 0)
-                {
-                    // ABSOLUTE MODE
-                    EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_ABS);
-                    EnableBit(UInputNative.UI_SET_ABSBIT, UInputNative.ABS_X);
-                    EnableBit(UInputNative.UI_SET_ABSBIT, UInputNative.ABS_Y);
-                    EnableBit(UInputNative.UI_SET_PROPBIT, UInputNative.INPUT_PROP_DIRECT);
-                    
-                    // REL mode (Scroll + Relative Movements even in Absolute mode)
-                    EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
-                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
-                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
-                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
-                    
-                    Log.Information("[UInputDevice] Creating ABSOLUTE mode device (EV_ABS + INPUT_PROP_DIRECT)");
-                }
-                else
-                {
-                    // RELATIVE MODE
-                    EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
-                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
-                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
-                    EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
-                    Log.Information("[UInputDevice] Creating RELATIVE mode device");
-                }
-
-                for (int keyCode = 1; keyCode <= 255; keyCode++)
-                {
-                    EnableBit(UInputNative.UI_SET_KEYBIT, keyCode);
-                }
-
-
-
-                var uidev = new UInputNative.uinput_user_dev
-                {
-                    name = "CrossMacro Virtual Input Device",
-                    id_bustype = UInputNative.BUS_USB,
-                    id_vendor = 0x1234,
-                    id_product = 0x5678,
-                    id_version = 1,
-                    absmax = new int[64],
-                    absmin = new int[64],
-                    absfuzz = new int[64],
-                    absflat = new int[64]
-                };
-
-                if (_width > 0 && _height > 0)
-                {
-                    uidev.absmax[UInputNative.ABS_X] = _width;
-                    uidev.absmax[UInputNative.ABS_Y] = _height;
-                }
-
-                // Write device setup
-                IntPtr size = (IntPtr)Marshal.SizeOf<UInputNative.uinput_user_dev>();
-                
-                // Use the specific write_setup method for uinput_user_dev
-                IntPtr result = UInputNative.write_setup(_fd, ref uidev, size);
-                if (result.ToInt32() < 0)
-                {
-                    var errno = Marshal.GetLastWin32Error();
-                    Log.Error("[UInputDevice] Failed to write uinput_user_dev. Errno: {Errno}", errno);
-                    throw new InvalidOperationException($"Failed to write uinput_user_dev (Errno: {errno})");
-                }
-
-                int createResult = UInputNative.ioctl(_fd, UInputNative.UI_DEV_CREATE, 0);
-                if (createResult < 0)
-                {
-                    var errno = Marshal.GetLastWin32Error();
-                    Log.Error("[UInputDevice] Failed to create device (UI_DEV_CREATE). Errno: {Errno}", errno);
-                    throw new InvalidOperationException($"Failed to create device (Errno: {errno})");
-                }
-                
-                Log.Information("[UInputDevice] Virtual input device (mouse + keyboard) created successfully.");
-                
+                SetupDeviceInternal();
                 // Wait for kernel to fully register the device before sending events
-                // This prevents missed clicks during fast playback start
                 Thread.Sleep(100);
                 Log.Debug("[UInputDevice] Kernel stabilization delay complete");
             }
             catch
             {
-                UInputNative.close(_fd);
-                _fd = -1;
+                CleanupOnFailure();
                 throw;
             }
+        }
+
+        public async Task CreateVirtualInputDeviceAsync()
+        {
+            try
+            {
+                SetupDeviceInternal();
+                // Wait for kernel to fully register the device before sending events
+                await Task.Delay(100);
+                Log.Debug("[UInputDevice] Kernel stabilization delay complete");
+            }
+            catch
+            {
+                CleanupOnFailure();
+                throw;
+            }
+        }
+
+        private void CleanupOnFailure()
+        {
+            if (_fd >= 0)
+            {
+                UInputNative.close(_fd);
+                _fd = -1;
+            }
+        }
+
+        private void SetupDeviceInternal()
+        {
+            Log.Information("[UInputDevice] Creating virtual input device (Mouse + Keyboard, Resolution: {Width}x{Height})...", _width, _height);
+            
+            // Try opening /dev/uinput
+            _fd = UInputNative.open(LinuxConstants.UInputDevicePath, UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
+            if (_fd < 0)
+            {
+                // Try alternative path
+                _fd = UInputNative.open(LinuxConstants.UInputAlternatePath, UInputNative.O_WRONLY | UInputNative.O_NONBLOCK);
+            }
+
+            if (_fd < 0)
+            {
+                var errno = Marshal.GetLastWin32Error();
+                Log.Error("[UInputDevice] Failed to open {UInputPath}. Errno: {Errno}", LinuxConstants.UInputDevicePath, errno);
+                throw new IOException($"Cannot open {LinuxConstants.UInputDevicePath} (Errno: {errno}). Check permissions (sudo chmod +0666 {LinuxConstants.UInputDevicePath}).");
+            }
+
+            Log.Debug("[UInputDevice] Opened {UInputPath} with fd: {Fd}", LinuxConstants.UInputDevicePath, _fd);
+
+            // Enable mouse button events (always needed)
+            EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_KEY);
+            EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_LEFT);
+            EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_RIGHT);
+            EnableBit(UInputNative.UI_SET_KEYBIT, UInputNative.BTN_MIDDLE);
+
+            if (_width > 0 && _height > 0)
+            {
+                // ABSOLUTE MODE
+                EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_ABS);
+                EnableBit(UInputNative.UI_SET_ABSBIT, UInputNative.ABS_X);
+                EnableBit(UInputNative.UI_SET_ABSBIT, UInputNative.ABS_Y);
+                EnableBit(UInputNative.UI_SET_PROPBIT, UInputNative.INPUT_PROP_DIRECT);
+                
+                // REL mode (Scroll + Relative Movements even in Absolute mode)
+                EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
+                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
+                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
+                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
+                
+                Log.Information("[UInputDevice] Creating ABSOLUTE mode device (EV_ABS + INPUT_PROP_DIRECT)");
+            }
+            else
+            {
+                // RELATIVE MODE
+                EnableBit(UInputNative.UI_SET_EVBIT, UInputNative.EV_REL);
+                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_X);
+                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_Y);
+                EnableBit(UInputNative.UI_SET_RELBIT, UInputNative.REL_WHEEL);
+                Log.Information("[UInputDevice] Creating RELATIVE mode device");
+            }
+
+            for (int keyCode = 1; keyCode <= VirtualDeviceConstants.MaxKeyCode; keyCode++)
+            {
+                EnableBit(UInputNative.UI_SET_KEYBIT, keyCode);
+            }
+
+            var uidev = new UInputNative.uinput_user_dev
+            {
+                name = VirtualDeviceConstants.DeviceName,
+                id_bustype = UInputNative.BUS_USB,
+                id_vendor = VirtualDeviceConstants.VendorId,
+                id_product = VirtualDeviceConstants.ProductId,
+                id_version = VirtualDeviceConstants.Version,
+                absmax = new int[64],
+                absmin = new int[64],
+                absfuzz = new int[64],
+                absflat = new int[64]
+            };
+
+            if (_width > 0 && _height > 0)
+            {
+                uidev.absmax[UInputNative.ABS_X] = _width - 1;
+                uidev.absmax[UInputNative.ABS_Y] = _height - 1;
+            }
+
+            // Write device setup
+            IntPtr size = (IntPtr)Marshal.SizeOf<UInputNative.uinput_user_dev>();
+            
+            // Use the specific write_setup method for uinput_user_dev
+            IntPtr result = UInputNative.write_setup(_fd, ref uidev, size);
+            if (result.ToInt32() < 0)
+            {
+                var errno = Marshal.GetLastWin32Error();
+                Log.Error("[UInputDevice] Failed to write uinput_user_dev. Errno: {Errno}", errno);
+                throw new InvalidOperationException($"Failed to write uinput_user_dev (Errno: {errno})");
+            }
+
+            int createResult = UInputNative.ioctl(_fd, UInputNative.UI_DEV_CREATE, 0);
+            if (createResult < 0)
+            {
+                var errno = Marshal.GetLastWin32Error();
+                Log.Error("[UInputDevice] Failed to create device (UI_DEV_CREATE). Errno: {Errno}", errno);
+                throw new InvalidOperationException($"Failed to create device (Errno: {errno})");
+            }
+            
+            Log.Information("[UInputDevice] Virtual input device (mouse + keyboard) created successfully.");
         }
 
         private void EnableBit(uint request, int bit)
@@ -191,9 +217,9 @@ namespace CrossMacro.Platform.Linux.Native.UInput
         {
             if (_fd < 0) return;
 
-            // Clamp to screen bounds if resolution is known
-            if (_width > 0) x = Math.Clamp(x, 0, _width);
-            if (_height > 0) y = Math.Clamp(y, 0, _height);
+            // Clamp to screen bounds if resolution is known (max is width-1/height-1)
+            if (_width > 0) x = Math.Clamp(x, 0, _width - 1);
+            if (_height > 0) y = Math.Clamp(y, 0, _height - 1);
 
             Emit(UInputNative.EV_ABS, UInputNative.ABS_X, x);
             Emit(UInputNative.EV_ABS, UInputNative.ABS_Y, y);

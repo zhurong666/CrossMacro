@@ -33,13 +33,7 @@ public class LinuxIpcInputCapture : IInputCapture
         _captureKeyboard = captureKeyboard;
     }
 
-    public IReadOnlyList<InputDeviceInfo> GetAvailableDevices()
-    {
-        return
-        [ 
-            new InputDeviceInfo { Name = "All Daemon Devices", Path = "daemon", IsMouse = true, IsKeyboard = true } 
-        ];
-    }
+
 
     private bool _started;
 

@@ -186,6 +186,9 @@ namespace CrossMacro.Platform.Linux.Native.X11
         [DllImport(LibXtst, CallingConvention = CallingConvention.Cdecl)]
         public static extern int XTestFakeMotionEvent(IntPtr display, int screen_number, int x, int y, ulong delay);
 
+        [DllImport(LibXtst, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int XTestFakeRelativeMotionEvent(IntPtr display, int x, int y, ulong delay);
+
         // XInput2 Extension
         private const string LibXi = "libXi.so.6";
 
