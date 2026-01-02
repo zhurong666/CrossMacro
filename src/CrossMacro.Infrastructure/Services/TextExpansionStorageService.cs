@@ -19,10 +19,10 @@ public class TextExpansionStorageService : ITextExpansionStorageService
 
 {
     private const string AppName = "crossmacro";
-    private const string ExpansionsFileName = "text-expansions.json";
+    private const string ExpansionsFileName = ConfigFileNames.TextExpansions;
     private readonly string _configDirectory;
     private readonly string _filePath;
-    private List<TextExpansion> _expansions = new();
+    private List<Core.Models.TextExpansion> _expansions = new();
     private readonly Lock _lock = new();
 
     public TextExpansionStorageService()
@@ -39,7 +39,7 @@ public class TextExpansionStorageService : ITextExpansionStorageService
     /// <summary>
     /// Loads all text expansions from the JSON file synchronously
     /// </summary>
-    public List<TextExpansion> Load()
+    public List<Core.Models.TextExpansion> Load()
     {
         lock (_lock)
         {
@@ -49,20 +49,20 @@ public class TextExpansionStorageService : ITextExpansionStorageService
                 {
                     Log.Information("[TextExpansionStorageService] No existing file found, starting with empty list");
                     _expansions = [];
-                    return new List<TextExpansion>(_expansions);
+                    return new List<Core.Models.TextExpansion>(_expansions);
                 }
 
                 var json = File.ReadAllText(_filePath);
                 _expansions = JsonSerializer.Deserialize(json, CrossMacroJsonContext.Default.ListTextExpansion) ?? [];
                 
                 Log.Information("[TextExpansionStorageService] Loaded {Count} text expansions", _expansions.Count);
-                return new List<TextExpansion>(_expansions);
+                return new List<Core.Models.TextExpansion>(_expansions);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "[TextExpansionStorageService] Failed to load text expansions");
                 _expansions = [];
-                return new List<TextExpansion>(_expansions);
+                return new List<Core.Models.TextExpansion>(_expansions);
             }
         }
     }
@@ -70,7 +70,7 @@ public class TextExpansionStorageService : ITextExpansionStorageService
     /// <summary>
     /// Loads all text expansions from the JSON file asynchronously
     /// </summary>
-    public async Task<List<TextExpansion>> LoadAsync()
+    public async Task<List<Core.Models.TextExpansion>> LoadAsync()
     {
         try
         {
@@ -103,7 +103,7 @@ public class TextExpansionStorageService : ITextExpansionStorageService
     /// <summary>
     /// Saves all text expansions to the JSON file
     /// </summary>
-    public async Task SaveAsync(IEnumerable<TextExpansion> expansions)
+    public async Task SaveAsync(IEnumerable<Core.Models.TextExpansion> expansions)
     {
         try
         {
@@ -117,7 +117,7 @@ public class TextExpansionStorageService : ITextExpansionStorageService
             
             lock (_lock)
             {
-                _expansions = new List<TextExpansion>(expansionList);
+                _expansions = new List<Core.Models.TextExpansion>(expansionList);
             }
             
             Log.Information("[TextExpansionStorageService] Saved {Count} text expansions", expansionList.Count);
@@ -133,11 +133,11 @@ public class TextExpansionStorageService : ITextExpansionStorageService
     /// <summary>
     /// Gets the current list of expansions (cached in memory)
     /// </summary>
-    public List<TextExpansion> GetCurrent()
+    public List<Core.Models.TextExpansion> GetCurrent()
     {
         lock (_lock)
         {
-            return new List<TextExpansion>(_expansions);
+            return new List<Core.Models.TextExpansion>(_expansions);
         }
     }
 
