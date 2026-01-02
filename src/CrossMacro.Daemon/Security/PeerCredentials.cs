@@ -2,6 +2,7 @@ using System;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using Serilog;
+using CrossMacro.Platform.Linux.Native;
 
 namespace CrossMacro.Daemon.Security;
 
@@ -66,9 +67,9 @@ public static class PeerCredentials
         {
             // 1. Get the group's GID
             int? groupGid = null;
-            if (System.IO.File.Exists("/etc/group"))
+            if (System.IO.File.Exists(LinuxSystemPaths.GroupFile))
             {
-                foreach (var line in System.IO.File.ReadLines("/etc/group"))
+                foreach (var line in System.IO.File.ReadLines(LinuxSystemPaths.GroupFile))
                 {
                     var parts = line.Split(':');
                     if (parts.Length >= 4 && parts[0] == groupName)
@@ -97,9 +98,9 @@ public static class PeerCredentials
             }
 
             // 2. Check if user's primary group matches
-            if (System.IO.File.Exists("/etc/passwd"))
+            if (System.IO.File.Exists(LinuxSystemPaths.PasswdFile))
             {
-                foreach (var line in System.IO.File.ReadLines("/etc/passwd"))
+                foreach (var line in System.IO.File.ReadLines(LinuxSystemPaths.PasswdFile))
                 {
                     var parts = line.Split(':');
                     if (parts.Length >= 4 && int.TryParse(parts[2], out int userUid) && userUid == uid)
@@ -129,9 +130,9 @@ public static class PeerCredentials
     {
         try
         {
-            if (System.IO.File.Exists("/etc/passwd"))
+            if (System.IO.File.Exists(LinuxSystemPaths.PasswdFile))
             {
-                foreach (var line in System.IO.File.ReadLines("/etc/passwd"))
+                foreach (var line in System.IO.File.ReadLines(LinuxSystemPaths.PasswdFile))
                 {
                     var parts = line.Split(':');
                     if (parts.Length >= 3 && int.TryParse(parts[2], out int userUid) && userUid == uid)

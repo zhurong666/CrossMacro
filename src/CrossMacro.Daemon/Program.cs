@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using CrossMacro.Daemon.Services;
 using CrossMacro.Platform.Linux.Native.Systemd;
 using Serilog;
 
@@ -18,23 +20,38 @@ class Program
 
         using var cts = new CancellationTokenSource();
         
-        Console.CancelKeyPress += (s, e) =>
+        // Handle SIGTERM (Systemd stop) and SIGINT (Ctrl+C)
+        using var sigTermInfo = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx => 
         {
-            e.Cancel = true;
-            Log.Information("Received shutdown signal...");
+            ctx.Cancel = true;
+            Log.Information("Received SIGTERM, stopping daemon...");
             SystemdNotify.Stopping();
             cts.Cancel();
-        };
+        });
+        
+        using var sigIntInfo = PosixSignalRegistration.Create(PosixSignal.SIGINT, ctx => 
+        {
+            ctx.Cancel = true;
+            Log.Information("Received SIGINT, stopping daemon...");
+            SystemdNotify.Stopping();
+            cts.Cancel();
+        });
 
         AppDomain.CurrentDomain.ProcessExit += (s, e) =>
         {
             SystemdNotify.Stopping();
         };
 
-        var service = new DaemonService();
-        
         try
         {
+            // Service Composition Root (Manual DI)
+            ISecurityService security = new SecurityService();
+            IVirtualDeviceManager virtualDevice = new VirtualDeviceManager();
+            IInputCaptureManager inputCapture = new InputCaptureManager();
+            ILinuxPermissionService permissionService = new LinuxPermissionService();
+            
+            var service = new DaemonService(security, virtualDevice, inputCapture, permissionService);
+            
             // Signal systemd that we're ready before starting the main loop
             // This is done inside RunAsync after socket is bound
             await service.RunAsync(cts.Token);

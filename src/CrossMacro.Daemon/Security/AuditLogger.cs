@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Serilog;
+using CrossMacro.Platform.Linux.Native;
 
 namespace CrossMacro.Daemon.Security;
 
@@ -52,9 +53,9 @@ public class AuditLogger
         }
         
         // Check if systemd created the directory
-        if (Directory.Exists("/run/crossmacro"))
+        if (Directory.Exists(LinuxSystemPaths.RuntimeDirectory))
         {
-            return "/run/crossmacro";
+            return LinuxSystemPaths.RuntimeDirectory;
         }
         
         // Fallback to XDG state home (writable by current user)
