@@ -5,8 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CrossMacro.Core.Models;
+using CrossMacro.Core.Services.Recording.Processors;
+using CrossMacro.Core.Services.Recording.Strategies;
 using Serilog;
-using CrossMacro.Core.Services;
 
 namespace CrossMacro.Core.Services;
 
@@ -17,50 +18,31 @@ public class MacroRecorder : IMacroRecorder, IDisposable
     private Stopwatch? _stopwatch;
     private IInputCapture? _inputCapture;
     private readonly Lock _eventLock = new();
-    private readonly IMousePositionProvider? _positionProvider;
-    private readonly Func<IInputSimulator>? _inputSimulatorFactory;
+    
     private readonly Func<IInputCapture>? _inputCaptureFactory;
+    private readonly ICoordinateStrategyFactory _coordinateStrategyFactory;
+    private readonly Func<ICoordinateStrategy, IInputEventProcessor> _processorFactory;
     
-    private HashSet<int>? _ignoredKeys;
-    private bool _useAbsoluteCoordinates;
+    private readonly Func<IInputSimulator>? _inputSimulatorFactory;
     
-    private int _cachedX;
-    private int _cachedY;
-    private DateTime _lastPositionUpdate = DateTime.MinValue;
-
-    private Task? _syncTask;
-    private CancellationTokenSource? _syncCancellation;
-    private const int BaseSyncIntervalMs = 1;
-    private const int MaxSyncIntervalMs = 500;
-    private const int DriftThresholdPx = 3;
-    
-    private const int PositionCacheMilliseconds = 1;
-    private readonly TimeSpan _positionCacheTime = TimeSpan.FromMilliseconds(PositionCacheMilliseconds);
-    private const int InitialPositionRetryCount = 3;
-    // Base delay for position retry - uses exponential backoff: 5ms, 10ms, 20ms
-    private const int InitialPositionRetryBaseDelayMs = 5;
+    // Active components
+    private ICoordinateStrategy? _currentStrategy;
+    private IInputEventProcessor? _currentProcessor;
     
     public event EventHandler<MacroEvent>? EventRecorded;
     
     public bool IsRecording => _isRecording;
 
     public MacroRecorder(
-        IMousePositionProvider positionProvider, 
-        Func<IInputSimulator>? inputSimulatorFactory = null,
-        Func<IInputCapture>? inputCaptureFactory = null)
+        Func<IInputCapture>? inputCaptureFactory,
+        ICoordinateStrategyFactory coordinateStrategyFactory,
+        Func<ICoordinateStrategy, IInputEventProcessor> processorFactory,
+        Func<IInputSimulator>? inputSimulatorFactory = null)
     {
-        _positionProvider = positionProvider;
-        _inputSimulatorFactory = inputSimulatorFactory;
         _inputCaptureFactory = inputCaptureFactory;
-        
-        if (_positionProvider.IsSupported)
-        {
-            Log.Information("[MacroRecorder] Using position provider: {ProviderName}", _positionProvider.ProviderName);
-        }
-        else
-        {
-            Log.Warning("[MacroRecorder] Position provider not supported, using relative coordinates");
-        }
+        _coordinateStrategyFactory = coordinateStrategyFactory;
+        _processorFactory = processorFactory;
+        _inputSimulatorFactory = inputSimulatorFactory;
     }
 
     public async Task StartRecordingAsync(bool recordMouse, bool recordKeyboard, IEnumerable<int>? ignoredKeys = null, bool forceRelative = false, bool skipInitialZero = false, CancellationToken cancellationToken = default)
@@ -73,8 +55,7 @@ public class MacroRecorder : IMacroRecorder, IDisposable
 
         _isRecording = true;
         
-        bool useAbsoluteCoordinates = !forceRelative && _positionProvider != null && _positionProvider.IsSupported;
-        _useAbsoluteCoordinates = useAbsoluteCoordinates;
+        bool useAbsoluteCoordinates = !forceRelative; // Strategy Factory handles the rest
         
         _currentSequence = new MacroSequence
         {
@@ -84,18 +65,8 @@ public class MacroRecorder : IMacroRecorder, IDisposable
             SkipInitialZeroZero = skipInitialZero
         };
         
-        _ignoredKeys = ignoredKeys != null ? new HashSet<int>(ignoredKeys) : null;
-        
         _stopwatch = Stopwatch.StartNew();
-        
-        _pendingRelX = 0;
-        _pendingRelY = 0;
-        _hasPendingMove = false;
-        
-        _cachedX = 0;
-        _cachedY = 0;
-        _lastPositionUpdate = DateTime.MinValue;
-        
+
         try
         {
             if (_inputCaptureFactory == null)
@@ -103,248 +74,50 @@ public class MacroRecorder : IMacroRecorder, IDisposable
                 throw new InvalidOperationException("No input capture factory configured. Please provide IInputCapture factory via DI.");
             }
             
+            
+            // 0. Perform Corner Reset if needed
+            // This is a physical environment preparation step, best handled here before capture starts.
+            if (forceRelative && !skipInitialZero && _inputSimulatorFactory != null)
+            {
+                 try
+                 {
+                     Log.Information("[MacroRecorder] Performing Corner Reset (Force 0,0)...");
+                     // We create a temporary simulator just for this op
+                     using var simulator = _inputSimulatorFactory();
+                     simulator.Initialize();
+                     simulator.MoveRelative(-20000, -20000); 
+                     Log.Information("[MacroRecorder] Corner Reset complete.");
+                 }
+                 catch (Exception ex)
+                 {
+                     Log.Error(ex, "[MacroRecorder] Failed to perform Corner Reset");
+                 }
+            }
+
+            // 1. Initialize Strategy
+            _currentStrategy = _coordinateStrategyFactory.Create(useAbsoluteCoordinates, forceRelative, skipInitialZero);
+            await _currentStrategy.InitializeAsync(cancellationToken);
+
+            // 2. Initialize Processor
+            _currentProcessor = _processorFactory(_currentStrategy);
+            _currentProcessor.Configure(recordMouse, recordKeyboard, ignoredKeys != null ? new HashSet<int>(ignoredKeys) : null, useAbsoluteCoordinates);
+
+            // 3. Initialize Capture
             _inputCapture = _inputCaptureFactory();
             _inputCapture.Configure(recordMouse, recordKeyboard);
             _inputCapture.InputReceived += OnInputReceived;
             _inputCapture.Error += OnInputCaptureError;
             
-            var devices = _inputCapture.GetAvailableDevices();
-            var mice = recordMouse ? devices.Where(d => d.IsMouse).ToList() : [];
-            var keyboards = recordKeyboard ? devices.Where(d => d.IsKeyboard).ToList() : [];
+            await _inputCapture.StartAsync(cancellationToken);
             
-            if (recordMouse && mice.Count == 0)
-            {
-                throw new InvalidOperationException("No mouse devices found");
-            }
-            
-            if (recordKeyboard && keyboards.Count == 0)
-            {
-                throw new InvalidOperationException("No keyboard devices found");
-            }
-            
-            Log.Information("[MacroRecorder] Found {MiceCount} mouse device(s) and {KeyboardCount} keyboard device(s):", mice.Count, keyboards.Count);
-            
-            foreach (var mouse in mice)
-            {
-                Log.Information("  [Mouse] {Name} ({Path})", mouse.Name, mouse.Path);
-            }
-            
-            foreach (var keyboard in keyboards)
-            {
-                Log.Information("  [Keyboard] {Name} ({Path})", keyboard.Name, keyboard.Path);
-            }
-            
-            _ = _inputCapture.StartAsync(cancellationToken);
-            
-
-            
-            Log.Information("[MacroRecorder] Input capture started via {ProviderName}", _inputCapture.ProviderName);
-
-            if (recordMouse && useAbsoluteCoordinates)
-            {
-                try
-                {
-                    int retryCount = 0;
-                    bool positionFound = false;
-                    
-                    while (retryCount < InitialPositionRetryCount && !positionFound)
-                    {
-                        var pos = await _positionProvider!.GetAbsolutePositionAsync();
-                        if (pos.HasValue)
-                        {
-                            _cachedX = pos.Value.X;
-                            _cachedY = pos.Value.Y;
-                            Log.Information("[MacroRecorder] Initial position: ({X}, {Y})", _cachedX, _cachedY);
-                            positionFound = true;
-                        }
-                        else
-                        {
-                            retryCount++;
-                            if (retryCount < InitialPositionRetryCount)
-                            {
-                                int delayMs = InitialPositionRetryBaseDelayMs * (1 << retryCount);
-                                Log.Warning("[MacroRecorder] Failed to get initial position, retrying in {DelayMs}ms ({Retry}/{Max})...", 
-                                    delayMs, retryCount, InitialPositionRetryCount);
-                                await Task.Delay(delayMs, cancellationToken);
-                            }
-                        }
-                    }
-
-                    if (!positionFound)
-                    {
-                        Log.Error("[MacroRecorder] Failed to get initial position after {Max} attempts.", InitialPositionRetryCount);
-                        Log.Warning("[MacroRecorder] Falling back to relative recording (0,0 start)");
-                        _cachedX = 0;
-                        _cachedY = 0;
-                        throw new InvalidOperationException("Could not determine initial mouse position. Recording aborted to prevent drift.");
-                    }
-
-                    bool isX11NativeCapture = _inputCapture?.ProviderName?.Contains("X11") == true;
-                    
-                    if (!isX11NativeCapture)
-                    {
-                        _syncCancellation = new CancellationTokenSource();
-                        _syncTask = Task.Run(() => PositionSyncLoop(_syncCancellation.Token));
-                    }
-                    else
-                    {
-                        Log.Information("[MacroRecorder] X11 Native capture detected - PositionSyncLoop disabled (event-driven)");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "[MacroRecorder] Error getting initial position");
-                    throw;
-                }
-            }
-            else if (recordMouse)
-            {
-                Log.Information("[MacroRecorder] Relative recording mode active (Blind Mode), ForceRelative={ForceRelative}", forceRelative);
-                
-                if (!skipInitialZero)
-                {
-                    try 
-                    {
-                        Log.Information("[MacroRecorder] Performing Corner Reset (Force 0,0) for calibration...");
-                        if (_inputSimulatorFactory != null)
-                        {
-                            using var resetSimulator = _inputSimulatorFactory();
-                            resetSimulator.Initialize();
-                            await Task.Delay(10, cancellationToken);
-                            resetSimulator.MoveRelative(-20000, -20000);
-                            Log.Information("[MacroRecorder] Corner Reset complete.");
-                        }
-                        else
-                        {
-                            Log.Warning("[MacroRecorder] No input simulator factory, skipping Corner Reset");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex, "[MacroRecorder] Failed to perform Corner Reset");
-                    }
-                }
-                else
-                {
-                    Log.Information("[MacroRecorder] Skipping Corner Reset (SkipInitialZeroZero=true)");
-                }
-
-                _cachedX = 0;
-                _cachedY = 0;
-            }
-
+            Log.Information("[MacroRecorder] Recording started via {ProviderName}", _inputCapture.ProviderName);
         }
         catch (Exception)
         {
             _isRecording = false;
-            if (_inputCapture != null)
-            {
-                try 
-                { 
-                    _inputCapture.InputReceived -= OnInputReceived;
-                    _inputCapture.Error -= OnInputCaptureError;
-                    _inputCapture.Stop();
-                    _inputCapture.Dispose(); 
-                } 
-                catch (Exception cleanupEx)
-                {
-                    Log.Debug(cleanupEx, "[MacroRecorder] Error during input capture cleanup");
-                }
-                _inputCapture = null;
-            }
+            CleanupComponents();
             throw;
         }
-    }
-
-    private async Task PositionSyncLoop(CancellationToken cancellationToken)
-    {
-        if (_positionProvider == null)
-            return;
-
-        int currentInterval = BaseSyncIntervalMs;
-        int consecutiveFailures = 0;
-        
-        Log.Information("[MacroRecorder] Position sync loop started (interval: {Interval}ms)", currentInterval);
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(currentInterval, cancellationToken);
-                
-                var sw = Stopwatch.StartNew();
-                var actualPos = await _positionProvider.GetAbsolutePositionAsync();
-                sw.Stop();
-                
-                if (actualPos.HasValue)
-                {
-                    int driftX = Math.Abs(actualPos.Value.X - _cachedX);
-                    int driftY = Math.Abs(actualPos.Value.Y - _cachedY);
-                    int totalDrift = driftX + driftY;
-                    
-                    if (totalDrift > DriftThresholdPx)
-                    {
-                        using (_eventLock.EnterScope())
-                        {
-                            if (Log.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                            {
-                                Log.Debug("[MacroRecorder] Position change detected: ({OldX},{OldY}) -> ({NewX},{NewY}), distance={Drift}px", 
-                                    _cachedX, _cachedY, actualPos.Value.X, actualPos.Value.Y, totalDrift);
-                            }
-                            
-                            if (_isRecording && _currentSequence != null && _stopwatch != null)
-                            {
-                                var macroEvent = new MacroEvent
-                                {
-                                    Type = EventType.MouseMove,
-                                    Timestamp = _stopwatch.ElapsedMilliseconds,
-                                    X = actualPos.Value.X,
-                                    Y = actualPos.Value.Y
-                                };
-                                AddMacroEvent(macroEvent);
-                            }
-                            
-                            _cachedX = actualPos.Value.X;
-                            _cachedY = actualPos.Value.Y;
-                        }
-                    }
-                    
-                    if (sw.ElapsedMilliseconds > 50)
-                    {
-                        currentInterval = Math.Min(currentInterval + 50, MaxSyncIntervalMs);
-                        Log.Debug("[MacroRecorder] Position query slow ({Ms}ms), increasing interval to {Interval}ms", 
-                            sw.ElapsedMilliseconds, currentInterval);
-                    }
-                    else if (currentInterval > BaseSyncIntervalMs && sw.ElapsedMilliseconds < 10)
-                    {
-                        currentInterval = Math.Max(currentInterval - 50, BaseSyncIntervalMs);
-                    }
-                    
-                    consecutiveFailures = 0;
-                }
-                else
-                {
-                    consecutiveFailures++;
-                    if (consecutiveFailures > 3)
-                    {
-                        currentInterval = Math.Min(currentInterval * 2, MaxSyncIntervalMs);
-                        Log.Warning("[MacroRecorder] Position query failed {Count} times, backing off to {Interval}ms", 
-                            consecutiveFailures, currentInterval);
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "[MacroRecorder] Error in position sync loop");
-                consecutiveFailures++;
-            }
-        }
-        
-        Log.Information("[MacroRecorder] Position sync loop stopped");
     }
 
     private void OnInputCaptureError(object? sender, string errorMessage)
@@ -352,167 +125,27 @@ public class MacroRecorder : IMacroRecorder, IDisposable
         Log.Error("[MacroRecorder] Input capture error: {Error}", errorMessage);
     }
 
-    private int _pendingRelX;
-    private int _pendingRelY;
-    private bool _hasPendingMove;
 
     private void OnInputReceived(object? sender, InputCaptureEventArgs e)
     {
         using (_eventLock.EnterScope())
         {
-            if (!_isRecording || _currentSequence == null || _stopwatch == null) return;
+            if (!_isRecording || _currentSequence == null || _stopwatch == null || _currentProcessor == null) return;
 
-            switch (e.Type)
+            try
             {
-                case InputEventType.Sync:
-                    FlushPendingMove();
-                    break;
-                    
-                case InputEventType.MouseMove:
-                    if (e.Code == InputEventCode.REL_X)
-                    {
-                        _pendingRelX += e.Value;
-                        _hasPendingMove = true;
-                    }
-                    else if (e.Code == InputEventCode.REL_Y)
-                    {
-                        _pendingRelY += e.Value;
-                        _hasPendingMove = true;
-                    }
-                    break;
-                    
-                case InputEventType.MouseScroll:
-                    FlushPendingMove();
-                    var scrollEvent = new MacroEvent
-                    {
-                        Timestamp = _stopwatch.ElapsedMilliseconds,
-                        Type = EventType.Click,
-                        Button = e.Value > 0 ? MouseButton.ScrollUp : MouseButton.ScrollDown
-                    };
-                    AddMacroEvent(scrollEvent);
-                    break;
+                var macroEvent = _currentProcessor.Process(e, _stopwatch.ElapsedMilliseconds);
                 
-                case InputEventType.MouseButton:
-                    // Handle mouse button events (from properly typed platforms)
-                    HandleMouseButtonEvent(e);
-                    break;
-                    
-                case InputEventType.Key:
-                    if (_hasPendingMove)
-                    {
-                        FlushPendingMove();
-                    }
-                    
-
-                    if (e.Code == InputEventCode.BTN_LEFT || e.Code == InputEventCode.BTN_RIGHT || e.Code == InputEventCode.BTN_MIDDLE)
-                    {
-                        HandleMouseButtonEvent(e);
-                    }
-                    else if (e.Code >= 1 && e.Code <= 255)
-                    {
-                        if (_ignoredKeys != null && _ignoredKeys.Contains(e.Code))
-                        {
-                            return;
-                        }
-
-                        if (e.Value == 0 || e.Value == 1)
-                        {
-                            var keyEvent = new MacroEvent
-                            {
-                                Timestamp = _stopwatch.ElapsedMilliseconds,
-                                Type = e.Value == 1 ? EventType.KeyPress : EventType.KeyRelease,
-                                KeyCode = e.Code,
-                                Button = MouseButton.None
-                            };
-                            
-                            if (Log.IsEnabled(Serilog.Events.LogEventLevel.Information))
-                            {
-                                Log.Information("[MacroRecorder] Keyboard event: {Type} Key={Code}", 
-                                    keyEvent.Type, keyEvent.KeyCode);
-                            }
-                            
-                            AddMacroEvent(keyEvent);
-                        }
-                    }
-                    break;
+                if (macroEvent != null)
+                {
+                    AddMacroEvent(macroEvent.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[MacroRecorder] Error processing input event");
             }
         }
-    }
-
-    private void HandleMouseButtonEvent(InputCaptureEventArgs e)
-    {
-        if (_currentSequence == null || _stopwatch == null) return;
-        
-        if (_hasPendingMove)
-        {
-            FlushPendingMove();
-        }
-        
-        var buttonEvent = new MacroEvent
-        {
-            Timestamp = _stopwatch.ElapsedMilliseconds
-        };
-        
-        if (e.Code == InputEventCode.BTN_LEFT) buttonEvent.Button = MouseButton.Left;
-        else if (e.Code == InputEventCode.BTN_RIGHT) buttonEvent.Button = MouseButton.Right;
-        else if (e.Code == InputEventCode.BTN_MIDDLE) buttonEvent.Button = MouseButton.Middle;
-        else return; // Ignore other mouse buttons for recording
-        
-        buttonEvent.Type = e.Value == 1 ? EventType.ButtonPress : EventType.ButtonRelease;
-        
-        if (_useAbsoluteCoordinates)
-        {
-
-            buttonEvent.X = _cachedX;
-            buttonEvent.Y = _cachedY;
-        }
-        else
-        {
-            buttonEvent.X = 0;
-            buttonEvent.Y = 0;
-        }
-        
-        if (Log.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-        {
-            Log.Debug("[MacroRecorder] Mouse button: {Button} {Type} at ({X}, {Y})", 
-                buttonEvent.Button, buttonEvent.Type, buttonEvent.X, buttonEvent.Y);
-        }
-        
-        AddMacroEvent(buttonEvent);
-    }
-
-    private void FlushPendingMove()
-    {
-        if (!_hasPendingMove || _currentSequence == null || _stopwatch == null) return;
-
-        var macroEvent = new MacroEvent
-        {
-            Type = EventType.MouseMove,
-            Timestamp = _stopwatch.ElapsedMilliseconds
-        };
-
-        if (_useAbsoluteCoordinates)
-        {
-
-            _cachedX += _pendingRelX;
-            _cachedY += _pendingRelY;
-            macroEvent.X = _cachedX;
-            macroEvent.Y = _cachedY;
-        }
-        else
-        {
-            macroEvent.X = _pendingRelX;
-            macroEvent.Y = _pendingRelY;
-
-            _cachedX += _pendingRelX;
-            _cachedY += _pendingRelY;
-        }
-
-        AddMacroEvent(macroEvent);
-
-        _pendingRelX = 0;
-        _pendingRelY = 0;
-        _hasPendingMove = false;
     }
 
     private void AddMacroEvent(MacroEvent macroEvent)
@@ -541,71 +174,89 @@ public class MacroRecorder : IMacroRecorder, IDisposable
 
         Log.Information("[MacroRecorder] Stopping recording...");
         
-        if (_syncCancellation != null)
-        {
-            _syncCancellation.Cancel();
-            try
-            {
-                _syncTask?.Wait(1000);
-            }
-            catch (AggregateException)
-            {
-
-            }
-            
-            _syncCancellation?.Dispose();
-            _syncCancellation = null;
-            _syncTask = null;
-        }
-
         _isRecording = false;
         _stopwatch?.Stop();
         
+        CleanupComponents();
+
+        if (_currentSequence != null && _stopwatch != null)
+        {
+            FinalizeSequence(_currentSequence, _stopwatch);
+        }
+
+        return _currentSequence ?? new MacroSequence();
+    }
+    
+    private void FinalizeSequence(MacroSequence sequence, Stopwatch stopwatch)
+    {
+        sequence.CalculateDuration();
+        sequence.RecordedAt = DateTime.UtcNow;
+        sequence.ActualDuration = stopwatch.Elapsed;
+        
+        sequence.MouseMoveCount = sequence.Events.Count(e => e.Type == Models.EventType.MouseMove);
+        sequence.ClickCount = sequence.Events.Count(e => 
+            e.Type == Models.EventType.Click || 
+            e.Type == Models.EventType.ButtonPress || 
+            e.Type == Models.EventType.ButtonRelease);
+        
+        if (stopwatch.Elapsed.TotalSeconds > 0)
+        {
+             sequence.EventsPerSecond = sequence.Events.Count / stopwatch.Elapsed.TotalSeconds;
+        }
+        
+        // Debug: Count event types
+        var moveCount = sequence.Events.Count(e => e.Type == Models.EventType.MouseMove);
+        var buttonCount = sequence.Events.Count(e => e.Type == Models.EventType.ButtonPress || e.Type == Models.EventType.ButtonRelease);
+        var nonZeroMoves = sequence.Events.Where(e => e.Type == Models.EventType.MouseMove && (e.X != 0 || e.Y != 0)).Take(5).ToList();
+        
+        Log.Information("[MacroRecorder] Recording completed: Duration={Duration:F2}s, TotalEvents={Events}, MouseMoves={Moves}, Buttons={Buttons}", 
+            stopwatch.Elapsed.TotalSeconds, sequence.Events.Count, moveCount, buttonCount);
+        
+        if (nonZeroMoves.Count > 0)
+        {
+            foreach (var m in nonZeroMoves)
+            {
+                Log.Debug("[MacroRecorder] Sample Move: X={X}, Y={Y}", m.X, m.Y);
+            }
+        }
+        else if (moveCount > 0)
+        {
+            Log.Warning("[MacroRecorder] All {Count} MouseMove events have X=0 and Y=0!", moveCount);
+        }
+    }
+    
+    private void CleanupComponents()
+    {
         if (_inputCapture != null)
         {
             try
             {
                 _inputCapture.InputReceived -= OnInputReceived;
                 _inputCapture.Error -= OnInputCaptureError;
-                _inputCapture.Stop();
-                _inputCapture.Dispose();
+                // NOTE: Do NOT call Stop() or Dispose() here!
+                // LinuxIpcInputCapture is now a Singleton shared with GlobalHotkeyService.
+                // GlobalHotkeyService manages the capture lifecycle.
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "[MacroRecorder] Error stopping input capture");
+                Log.Error(ex, "[MacroRecorder] Error cleaning up input capture");
             }
             _inputCapture = null;
         }
-
-        if (_currentSequence != null && _stopwatch != null)
+        
+        if (_currentStrategy != null)
         {
-
-
-            _currentSequence.CalculateDuration();
-            
-            _currentSequence.RecordedAt = DateTime.UtcNow;
-            _currentSequence.ActualDuration = _stopwatch.Elapsed;
-            
-            _currentSequence.MouseMoveCount = _currentSequence.Events.Count(e => e.Type == Models.EventType.MouseMove);
-            _currentSequence.ClickCount = _currentSequence.Events.Count(e => 
-                e.Type == Models.EventType.Click || 
-                e.Type == Models.EventType.ButtonPress || 
-                e.Type == Models.EventType.ButtonRelease);
-            
-            if (_stopwatch.Elapsed.TotalSeconds > 0)
-            {
-                _currentSequence.EventsPerSecond = _currentSequence.Events.Count / _stopwatch.Elapsed.TotalSeconds;
-            }
-            
-            Log.Information("[MacroRecorder] Recording completed: Duration={Duration:F2}s, Events={Events}, Moves={Moves}, Clicks={Clicks}, EventsPerSec={EventsPerSec:F1}", 
-                _stopwatch.Elapsed.TotalSeconds, 
-                _currentSequence.Events.Count,
-                _currentSequence.MouseMoveCount,
-                _currentSequence.ClickCount,
-                _currentSequence.EventsPerSecond);
+             try
+             {
+                 _currentStrategy.Dispose();
+             }
+             catch(Exception ex)
+             {
+                  Log.Error(ex, "[MacroRecorder] Error disposing strategy");
+             }
+             _currentStrategy = null;
         }
-
-        return _currentSequence ?? new MacroSequence();
+        _currentProcessor = null;
     }
     
     public MacroSequence? GetCurrentRecording()
@@ -615,35 +266,6 @@ public class MacroRecorder : IMacroRecorder, IDisposable
     
     public void Dispose()
     {
-        if (_syncCancellation != null)
-        {
-            _syncCancellation.Cancel();
-            try
-            {
-                _syncTask?.Wait(1000);
-            }
-            catch (Exception ex)
-            {
-                Log.Debug(ex, "[MacroRecorder] Error waiting for sync task during dispose");
-            }
-            
-            _syncCancellation?.Dispose();
-            _syncCancellation = null;
-            _syncTask = null;
-        }
-        
-        if (_inputCapture != null)
-        {
-            try
-            {
-                _inputCapture.Stop();
-                _inputCapture.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "[MacroRecorder] Error disposing input capture");
-            }
-            _inputCapture = null;
-        }
+        CleanupComponents();
     }
 }
