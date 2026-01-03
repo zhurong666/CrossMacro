@@ -4,7 +4,9 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0</project_license>
   <name>CrossMacro</name>
-  <developer_name>Alper Han</developer_name>
+  <developer id="io.github.alper_han">
+    <name>Alper Han</name>
+  </developer>
   <summary>Mouse and keyboard macro automation tool for X11</summary>
   <description>
     <p>

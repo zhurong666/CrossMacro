@@ -149,6 +149,7 @@ scripts/build_appimage_output/
 scripts/AppDir/
 
 # Flatpak
+.flatpak-builder/
 flatpak/.flatpak-builder/
 flatpak/build-dir/
 flatpak/repo/
