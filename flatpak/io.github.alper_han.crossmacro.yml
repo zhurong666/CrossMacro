@@ -14,7 +14,6 @@ finish-args:
   
   # User files (macro save/load)
   - --filesystem=xdg-documents/crossmacro:create
-  - --filesystem=xdg-config/crossmacro:create
 
 modules:
   - name: crossmacro

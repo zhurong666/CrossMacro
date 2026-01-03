@@ -24,6 +24,7 @@
   <launchable type="desktop-id">io.github.alper_han.crossmacro.desktop</launchable>
   <url type="homepage">https://github.com/alper-han/CrossMacro</url>
   <url type="bugtracker">https://github.com/alper-han/CrossMacro/issues</url>
+  <url type="vcs-browser">https://github.com/alper-han/CrossMacro</url>
   <screenshots>
     <screenshot type="default">
       <caption>Recording Tab - Record mouse and keyboard macros</caption>
