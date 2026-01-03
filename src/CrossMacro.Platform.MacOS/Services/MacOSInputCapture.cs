@@ -211,6 +211,15 @@ public class MacOSInputCapture : IInputCapture
                     Value = (int)loc.Y, 
                     Timestamp = timestamp 
                  });
+                 
+                 // SYNC event to ensure X and Y are processed together
+                 InputReceived?.Invoke(this, new InputCaptureEventArgs { 
+                    Type = InputEventType.Sync, 
+                    Code = 0,
+                    Value = 0,
+                    Timestamp = timestamp,
+                    DeviceName = ProviderName
+                 });
              }
              
              if (type == CoreGraphics.CGEventType.ScrollWheel)

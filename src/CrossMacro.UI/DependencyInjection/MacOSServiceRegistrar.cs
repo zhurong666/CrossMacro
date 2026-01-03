@@ -26,8 +26,8 @@ public class MacOSServiceRegistrar : IPlatformServiceRegistrar
         services.AddSingleton<IExtensionStatusNotifier?>(sp => null);
         #pragma warning restore CS8634
 
-        services.AddTransient<Func<IInputSimulator>>(sp => () => sp.GetRequiredService<IInputSimulator>());
-        services.AddTransient<Func<IInputCapture>>(sp => () => sp.GetRequiredService<IInputCapture>());
+        services.AddTransient<Func<IInputSimulator>>(sp => () => new MacOSInputSimulator());
+        services.AddTransient<Func<IInputCapture>>(sp => () => new MacOSInputCapture());
         
         services.AddSingleton<ICoordinateStrategyFactory, MacOSCoordinateStrategyFactory>();
     }

@@ -45,7 +45,21 @@ public static class ServiceCollectionExtensions
         // Recording processor factory
         services.AddSingleton<Func<ICoordinateStrategy, IInputEventProcessor>>(sp => 
             strategy => new StandardInputEventProcessor(strategy));
-        services.AddTransient<IMacroRecorder, MacroRecorder>();
+        
+        // MacroRecorder with optional inputSimulatorFactory for corner reset
+        services.AddTransient<IMacroRecorder>(sp =>
+        {
+            var captureFactory = sp.GetService<Func<IInputCapture>>();
+            var strategyFactory = sp.GetRequiredService<ICoordinateStrategyFactory>();
+            var processorFactory = sp.GetRequiredService<Func<ICoordinateStrategy, IInputEventProcessor>>();
+            var simulatorFactory = sp.GetService<Func<IInputSimulator>>();
+            
+            return new MacroRecorder(
+                captureFactory,
+                strategyFactory,
+                processorFactory,
+                simulatorFactory);
+        });
         
         return services;
     }

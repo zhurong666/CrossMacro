@@ -176,7 +176,7 @@ public class RecordingViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public bool IsForceRelativeSupported => OperatingSystem.IsLinux();
+    public bool IsForceRelativeSupported => OperatingSystem.IsLinux() || OperatingSystem.IsWindows();
     
     public bool SkipInitialZeroZero
     {

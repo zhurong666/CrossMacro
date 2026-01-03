@@ -26,11 +26,11 @@ public class WindowsCoordinateStrategyFactory : ICoordinateStrategyFactory
 
         if (useAbsoluteCoordinates)
         {
-             return new AbsoluteCoordinateStrategy(_positionProvider);
+            return new WindowsAbsoluteCoordinateStrategy(_positionProvider);
         }
         else
         {
-             return new RelativeCoordinateStrategy();
+            return new RelativeCoordinateStrategy();
         }
     }
 }
