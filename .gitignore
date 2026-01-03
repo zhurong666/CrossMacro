@@ -293,3 +293,16 @@ TestResults/
 *.lock
 !flake.lock
 !package-lock.json
+
+##########################
+# Binary Files
+##########################
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+*.lib
+*.a
+*.o
+*.obj
