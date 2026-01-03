@@ -50,6 +50,7 @@ cp -r "$PROJECT_ROOT/src/CrossMacro.UI/Assets/icons/"* "$BUILD_DIR/icons/"
 echo "Copying desktop files..."
 cp "$FLATPAK_DIR/$APP_ID.desktop" "$BUILD_DIR/"
 cp "$FLATPAK_DIR/$APP_ID.metainfo.xml" "$BUILD_DIR/"
+cp "$PROJECT_ROOT/LICENSE" "$BUILD_DIR/"
 
 # Build Flatpak (dir source, no archive needed)
 
