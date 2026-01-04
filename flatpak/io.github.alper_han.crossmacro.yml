@@ -2,6 +2,8 @@ app-id: io.github.alper_han.crossmacro
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.dotnet10
 command: crossmacro
 
 finish-args:
@@ -9,13 +11,33 @@ finish-args:
   - --share=ipc
   - --socket=x11
   
-  # - IBus for input method detection
+  # Detect keyboard layout on KDE Plasma
   - --talk-name=org.kde.keyboard
   
   # User files (macro save/load)
   - --filesystem=xdg-documents/crossmacro:create
 
+  # GPU Acceleration (Recommended for Avalonia UI)
+  - --device=dri
+
+  # .NET runtime location
+  - --env=DOTNET_ROOT=/app/lib/dotnet
+
+build-options:
+  prepend-path: /usr/lib/sdk/dotnet10/bin
+  append-ld-library-path: /usr/lib/sdk/dotnet10/lib
+  prepend-pkg-config-path: /usr/lib/sdk/dotnet10/lib/pkgconfig
+  env:
+    DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
 modules:
+  # .NET Runtime Installation (Framework-Dependent approach)
+  - name: dotnet
+    buildsystem: simple
+    build-commands:
+      - /usr/lib/sdk/dotnet10/bin/install.sh
+
   - name: crossmacro
     buildsystem: simple
     build-commands:
@@ -24,14 +46,8 @@ modules:
       - cp -r * /app/lib/crossmacro/ || true
       - chmod +x /app/lib/crossmacro/CrossMacro.UI
       
-      # Create wrapper script in bin
-      - mkdir -p /app/bin
-      - |
-        cat > /app/bin/crossmacro << 'EOF'
-        #!/bin/sh
-        exec /app/lib/crossmacro/CrossMacro.UI "$@"
-        EOF
-      - chmod +x /app/bin/crossmacro
+      # Install launcher script
+      - install -Dm755 crossmacro.sh /app/bin/crossmacro
       
       # Desktop entry
       - install -Dm644 io.github.alper_han.crossmacro.desktop /app/share/applications/io.github.alper_han.crossmacro.desktop
