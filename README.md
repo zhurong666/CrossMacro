@@ -49,15 +49,17 @@ This is required because standard Wayland security protocols prevent application
 - **Text Expansion**: Create text shortcuts for quick insertions (e.g. :mail -> email@example.com)
 - **Shortcuts**: Assign macros to keyboard keys, mouse buttons, or combinations for instant execution
 - **Scheduling**: Run macros automatically at specific times or intervals
+- **Macro Editor**: Powerful built-in editor with undo/redo, smart coordinate capture, and action reordering to fine-tune your macros
 - **Playback**: Replay recorded macros with pause/resume support
 - **Loop Mode**: Continuously repeat macros with customizable repeat count and delay
 - **Speed Control**: Adjust playback speed from 0.1x to 10.0x
 - **File Operations**: Save/load macros in .macro format (you choose where to save)
+- **Themes**: Customize the look with Classic, Latte, Mocha, Dracula, and Nord themes
+- **System Tray Icon**: Minimize to tray and control macros from system tray (optional)
 - **Global Hotkeys**: Customizable global hotkey support
   - **F8**: Start/Stop recording
   - **F9**: Start/Stop playback
   - **F10**: Pause/Resume playback
-- **System Tray Icon**: Minimize to tray and control macros from system tray (optional)
 
 ## 📥 Installation
 
