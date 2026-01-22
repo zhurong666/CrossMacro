@@ -3,14 +3,14 @@
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
 
-  <Identity Name="AlperHan.CrossMacro"
+  <Identity Name="CrossMacro.CrossMacro"
             Publisher="CN=FE9E81DC-2233-4DB9-B5D4-E11AFD6462CF"
             Version="0.9.0.0"
             ProcessorArchitecture="x64"/>
 
   <Properties>
     <DisplayName>CrossMacro</DisplayName>
-    <PublisherDisplayName>Alper Han</PublisherDisplayName>
+    <PublisherDisplayName>CrossMacro</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <Description>Cross-platform mouse and keyboard macro automation tool with text expansion support.</Description>
   </Properties>
