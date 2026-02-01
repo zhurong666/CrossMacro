@@ -315,16 +315,22 @@ public class EditorActionConverter : IEditorActionConverter
                     pendingDelay += ev.DelayMs;
                     continue;
                 }
-                
+
                 var eventToAdd = ev;
                 eventToAdd.DelayMs += pendingDelay;
                 eventToAdd.Timestamp = timestamp;
-                
+
                 timestamp += eventToAdd.DelayMs;
                 pendingDelay = 0;
-                
+
                 sequence.Events.Add(eventToAdd);
             }
+        }
+
+        // Preserve trailing delay for looped macros
+        if (pendingDelay > 0)
+        {
+            sequence.TrailingDelayMs = pendingDelay;
         }
         
         sequence.CalculateDuration();
@@ -381,7 +387,17 @@ public class EditorActionConverter : IEditorActionConverter
             
             actions.Add(action);
         }
-        
+
+        // Add trailing delay as a Delay action if present
+        if (sequence.TrailingDelayMs > 0)
+        {
+            actions.Add(new EditorAction
+            {
+                Type = EditorActionType.Delay,
+                DelayMs = sequence.TrailingDelayMs
+            });
+        }
+
         return actions;
     }
     

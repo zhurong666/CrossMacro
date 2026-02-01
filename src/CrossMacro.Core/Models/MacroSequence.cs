@@ -75,6 +75,12 @@ public class MacroSequence
     /// If false and IsAbsoluteCoordinates is false, playback should do Corner Reset to 0,0 first.
     /// </summary>
     public bool SkipInitialZeroZero { get; set; }
+
+    /// <summary>
+    /// Delay in milliseconds to wait after the last event completes.
+    /// Useful for looped macros where you want a pause before the next iteration.
+    /// </summary>
+    public int TrailingDelayMs { get; set; }
     
     /// <summary>
     /// Validates the macro sequence

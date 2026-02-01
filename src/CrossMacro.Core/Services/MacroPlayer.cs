@@ -175,6 +175,16 @@ public class MacroPlayer : IMacroPlayer, IDisposable, IPlaybackPauseToken
 
                 await PlayOnceAsync(macro, options.SpeedMultiplier, _cts.Token);
 
+                // Apply trailing delay after the macro completes (before next iteration or end)
+                if (macro.TrailingDelayMs > 0 && !_cts.Token.IsCancellationRequested)
+                {
+                    int trailingDelay = (int)(macro.TrailingDelayMs / options.SpeedMultiplier);
+                    if (trailingDelay > 0)
+                    {
+                        await _timingService.WaitAsync(trailingDelay, this, _cts.Token);
+                    }
+                }
+
                 bool hasNextIteration = infiniteLoop || iteration < repeatCount - 1;
 
                 if (hasNextIteration && !_cts.Token.IsCancellationRequested)
