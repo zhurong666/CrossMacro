@@ -91,11 +91,23 @@ public class MacroEventExecutor : IEventExecutor
     /// </summary>
     public void Execute(MacroEvent ev, bool isRecordedAbsolute)
     {
-        // Handle implicit movement for non-MouseMove events (critical for Relative Mode)
-        if (ev.Type != EventType.MouseMove && !isRecordedAbsolute)
+        // Handle implicit movement for non-MouseMove events
+        if (ev.Type != EventType.MouseMove)
         {
-            if (ev.X != 0 || ev.Y != 0)
+            if (isRecordedAbsolute)
             {
+                // Absolute mode: calculate delta and move
+                int dx = ev.X - _coordinator.CurrentX;
+                int dy = ev.Y - _coordinator.CurrentY;
+                if (dx != 0 || dy != 0)
+                {
+                    _simulator.MoveRelative(dx, dy);
+                    _coordinator.UpdatePosition(ev.X, ev.Y);
+                }
+            }
+            else if (ev.X != 0 || ev.Y != 0)
+            {
+                // Relative mode: use delta directly
                 MoveRelative(ev.X, ev.Y);
             }
         }
@@ -143,24 +155,17 @@ public class MacroEventExecutor : IEventExecutor
     {
         if (isRecordedAbsolute)
         {
-            bool canPlayAbsolute = _screenWidth > 0 && _screenHeight > 0;
-            
-            if (canPlayAbsolute)
+            // Always use relative movements even for absolute coordinates
+            // This avoids issues with hybrid ABS+REL devices on Wayland compositors
+            // Calculate delta from tracked position to target
+            int dx = ev.X - _coordinator.CurrentX;
+            int dy = ev.Y - _coordinator.CurrentY;
+
+            if (dx != 0 || dy != 0)
             {
-                MoveAbsolute(ev.X, ev.Y);
-            }
-            else
-            {
-                // Fallback to relative when screen size unknown
-                // Calculate delta from tracked position to target
-                int dx = ev.X - _coordinator.CurrentX;
-                int dy = ev.Y - _coordinator.CurrentY;
-                
-                // MoveRelative already updates coordinator via AddDelta
-                // But we need exact position, not accumulated delta (avoids float drift)
                 _simulator.MoveRelative(dx, dy);
-                _coordinator.UpdatePosition(ev.X, ev.Y);  // Force exact position
             }
+            _coordinator.UpdatePosition(ev.X, ev.Y);  // Force exact position
         }
         else
         {

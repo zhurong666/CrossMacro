@@ -89,9 +89,9 @@ public class DefaultPlaybackCoordinator : IPlaybackCoordinator
     }
 
     private async Task InitializeAbsoluteModeAsync(
-        MacroEvent firstEvent, 
-        IInputSimulator simulator, 
-        int screenWidth, 
+        MacroEvent firstEvent,
+        IInputSimulator simulator,
+        int screenWidth,
         int screenHeight,
         CancellationToken cancellationToken)
     {
@@ -100,8 +100,16 @@ public class DefaultPlaybackCoordinator : IPlaybackCoordinator
             int startX = Math.Clamp(firstEvent.X, 0, screenWidth);
             int startY = Math.Clamp(firstEvent.Y, 0, screenHeight);
 
-            Log.Information("[PlaybackCoordinator] Moving to start position: ({X}, {Y})", startX, startY);
-            simulator.MoveAbsolute(startX, startY);
+            int dx = startX - CurrentX;
+            int dy = startY - CurrentY;
+
+            Log.Information("[PlaybackCoordinator] Moving to start position: ({X}, {Y}) via delta ({DX}, {DY})",
+                startX, startY, dx, dy);
+
+            if (dx != 0 || dy != 0)
+            {
+                simulator.MoveRelative(dx, dy);
+            }
             CurrentX = startX;
             CurrentY = startY;
         }
@@ -157,13 +165,20 @@ public class DefaultPlaybackCoordinator : IPlaybackCoordinator
 
         if (macro.IsAbsoluteCoordinates && screenWidth > 0 && screenHeight > 0)
         {
-            // Move to first event's position
             var firstEvent = macro.Events.FirstOrDefault(e => e.Type == EventType.MouseMove);
             if (firstEvent.Type != EventType.None)
             {
                 int startX = Math.Clamp(firstEvent.X, 0, screenWidth);
                 int startY = Math.Clamp(firstEvent.Y, 0, screenHeight);
-                simulator.MoveAbsolute(startX, startY);
+
+                // Use relative movement to avoid hybrid ABS+REL device issues on Wayland
+                int dx = startX - CurrentX;
+                int dy = startY - CurrentY;
+
+                if (dx != 0 || dy != 0)
+                {
+                    simulator.MoveRelative(dx, dy);
+                }
                 CurrentX = startX;
                 CurrentY = startY;
             }
