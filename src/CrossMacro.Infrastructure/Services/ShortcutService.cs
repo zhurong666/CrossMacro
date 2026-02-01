@@ -37,6 +37,9 @@ public class ShortcutService : IShortcutService
     
     // Track currently executing tasks and their players for toggle behavior
     private readonly Dictionary<Guid, IMacroPlayer> _activePlayers = new();
+
+    // Track which key codes are part of active RunWhileHeld hotkeys (main key + modifiers)
+    private readonly Dictionary<Guid, HashSet<int>> _activeHotkeyKeys = new();
     
     public ObservableCollection<ShortcutTask> Tasks { get; } = new();
     public bool IsListening => _isListening;
@@ -180,25 +183,44 @@ public class ShortcutService : IShortcutService
         
         if (shouldStart)
         {
+            // For RunWhileHeld, track all keys that make up this hotkey
+            if (matchingTask.RunWhileHeld)
+            {
+                lock (_lock)
+                {
+                    var hotkeyKeys = new HashSet<int>(e.PressedModifiers) { e.KeyCode };
+                    _activeHotkeyKeys[matchingTask.Id] = hotkeyKeys;
+                }
+            }
             _ = ExecuteTaskAsync(matchingTask);
         }
     }
     
     private void OnRawKeyReleased(object? sender, RawHotkeyInputEventArgs e)
     {
-        IMacroPlayer? playerToStop = null;
+        List<(Guid taskId, IMacroPlayer player)> playersToStop = new();
+
         lock (_lock)
         {
-            var task = Tasks.FirstOrDefault(t =>
-                t.IsEnabled &&
-                t.RunWhileHeld &&
-                string.Equals(t.HotkeyString, e.HotkeyString, StringComparison.OrdinalIgnoreCase));
-            if (task == null) return;
-            if (!_activePlayers.TryGetValue(task.Id, out var player)) return;
-            _activePlayers.Remove(task.Id);
-            playerToStop = player;
+            // Find all RunWhileHeld tasks where the released key is part of the hotkey
+            foreach (var (taskId, hotkeyKeys) in _activeHotkeyKeys)
+            {
+                if (hotkeyKeys.Contains(e.KeyCode))
+                {
+                    if (_activePlayers.TryGetValue(taskId, out var player))
+                    {
+                        playersToStop.Add((taskId, player));
+                        _activePlayers.Remove(taskId);
+                    }
+                    _activeHotkeyKeys.Remove(taskId);
+                }
+            }
         }
-        playerToStop?.Stop();
+
+        foreach (var (_, player) in playersToStop)
+        {
+            player.Stop();
+        }
     }
     
     private async Task ExecuteTaskAsync(ShortcutTask task)

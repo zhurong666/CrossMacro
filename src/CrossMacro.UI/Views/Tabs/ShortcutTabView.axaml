@@ -196,7 +196,8 @@
                                          IsChecked="{Binding SelectedTask.RunWhileHeld, Mode=TwoWay}"
                                          ToolTip.Tip="Hold shortcut to run; release to stop. Keyboard trigger only."/>
                             <Grid ColumnDefinitions="*,*">
-                                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
+                                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0"
+                                            IsVisible="{Binding SelectedTask.LoopEnabled}">
                                     <TextBlock Classes="label" Text="Loop Count"/>
                                     <NumericUpDown Value="{Binding SelectedTask.RepeatCount, Mode=TwoWay}" Minimum="0" Maximum="10000" FormatString="0"/>
                                 </StackPanel>
@@ -205,7 +206,8 @@
                                     <NumericUpDown Value="{Binding SelectedTask.RepeatDelayMs, Mode=TwoWay}" Minimum="0" Maximum="2147483647" Increment="100" FormatString="0"/>
                                 </StackPanel>
                             </Grid>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4" Margin="0,4,0,0"
+                                        IsVisible="{Binding SelectedTask.LoopEnabled}">
                                 <TextBlock Text="💡" FontSize="12" FontFamily="{StaticResource EmojiFont}" Opacity="0.7"/>
                                 <TextBlock Text="Tip: Loop Count 0 means infinite loop" Classes="label" FontSize="12" Opacity="0.7"/>
                             </StackPanel>

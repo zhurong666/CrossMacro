@@ -213,11 +213,9 @@ public class GlobalHotkeyService : IGlobalHotkeyService
         else if (e.Value == 0)
         {
             var releaseModifiers = _modifierTracker.CurrentModifiers;
-            if (!releaseModifiers.Contains(e.Code))
-            {
-                var releaseHotkeyString = _hotkeyStringBuilder.Build(e.Code, releaseModifiers);
-                RawKeyReleased?.Invoke(this, new RawHotkeyInputEventArgs(e.Code, releaseModifiers, releaseHotkeyString));
-            }
+            // Always fire RawKeyReleased for all keys (including modifiers)
+            // so RunWhileHeld shortcuts can stop when any part of the hotkey is released
+            RawKeyReleased?.Invoke(this, new RawHotkeyInputEventArgs(e.Code, releaseModifiers, string.Empty));
             _modifierTracker.OnKeyReleased(e.Code);
         }
         
