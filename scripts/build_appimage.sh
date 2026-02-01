@@ -2,7 +2,7 @@
 set -e
 
 APP_NAME="CrossMacro"
-VERSION="${VERSION="0.9.0"}"
+VERSION="${VERSION="0.9.1"}"
 PUBLISH_DIR="${PUBLISH_DIR:-../publish}"
 APP_DIR="AppDir"
 
