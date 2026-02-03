@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using CrossMacro.Platform.Linux.Native.UInput;
 using CrossMacro.Platform.Linux.Services;
 using Serilog;
@@ -10,6 +11,8 @@ namespace CrossMacro.Platform.Linux.Native.Evdev;
 
 public class InputDeviceHelper
 {
+    private static readonly Regex MouseHandlerRegex = new(@"\bmouse\d+\b", RegexOptions.Compiled);
+
     public class InputDevice
     {
         public string Path { get; set; } = string.Empty;
@@ -17,8 +20,9 @@ public class InputDeviceHelper
         public bool IsMouse { get; set; }
         public bool IsKeyboard { get; set; }
         public bool IsVirtual { get; set; }
-        
-        public override string ToString() => $"{Name} ({Path}) [{(IsMouse ? "Mouse" : "")}{(IsMouse && IsKeyboard ? ", " : "")}{(IsKeyboard ? "Keyboard" : "")}{(IsVirtual ? " (Virtual)" : "")}]";
+
+        public override string ToString() =>
+            $"{Name} ({Path}) [{(IsMouse ? "Mouse" : "")}{(IsMouse && IsKeyboard ? ", " : "")}{(IsKeyboard ? "Keyboard" : "")}{(IsVirtual ? " (Virtual)" : "")}]";
     }
 
     public static List<InputDevice> GetAvailableDevices()
@@ -40,15 +44,12 @@ public class InputDeviceHelper
         string? procDevicesContent = null;
         try
         {
-            var procDevices = "/proc/bus/input/devices";
-            if (File.Exists(procDevices))
-            {
-                procDevicesContent = File.ReadAllText(procDevices);
-            }
+            if (File.Exists("/proc/bus/input/devices"))
+                procDevicesContent = File.ReadAllText("/proc/bus/input/devices");
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Failed to read /proc/bus/input/devices, some device detection may be less accurate");
+            Log.Warning(ex, "Failed to read /proc/bus/input/devices");
         }
 
         foreach (var file in files)
@@ -56,22 +57,20 @@ public class InputDeviceHelper
             try
             {
                 var device = GetDeviceInfo(file, procDevicesContent);
-                
+
                 if ((device.IsMouse || device.IsKeyboard) && CanOpenForReading(file))
                 {
-                    Log.Information("Device found: {Name} (Mouse: {IsMouse}, Keyboard: {IsKeyboard}) - Added", device.Name, device.IsMouse, device.IsKeyboard);
+                    Log.Information("Device found: {Name} (Mouse: {IsMouse}, Keyboard: {IsKeyboard})",
+                        device.Name, device.IsMouse, device.IsKeyboard);
                     devices.Add(device);
+                }
+                else if (device.IsVirtual)
+                {
+                    Log.Debug("Skipping virtual device: {Name}", device.Name);
                 }
                 else
                 {
-                    if (device.IsVirtual)
-                    {
-                        Log.Information("SKIPPING VIRTUAL DEVICE: {Name} ({Path})", device.Name, device.Path);
-                    }
-                    else
-                    {
-                        Log.Debug("Device found: {Name} - Skipped (Not relevant or permission denied)", device.Name);
-                    }
+                    Log.Debug("Skipping device: {Name}", device.Name);
                 }
             }
             catch (Exception ex)
@@ -89,7 +88,7 @@ public class InputDeviceHelper
         if (fd < 0)
         {
             var errno = Marshal.GetLastWin32Error();
-            throw new IOException($"Cannot open {devicePath}. Errno: {errno}. Check permissions.");
+            throw new IOException($"Cannot open {devicePath}. Errno: {errno}");
         }
 
         try
@@ -100,7 +99,6 @@ public class InputDeviceHelper
 
             if (IsVirtualDevice(devicePath, name))
             {
-                Log.Debug("[InputDeviceHelper] Excluding '{Name}' at {Path} - virtual device", name, devicePath);
                 return new InputDevice
                 {
                     Path = devicePath,
@@ -111,42 +109,24 @@ public class InputDeviceHelper
                 };
             }
 
-            bool isMouse = CheckIsMouse(fd);
-            bool isKeyboard = CheckIsKeyboard(fd);
-            bool isTouchpad = false;
-
-            if (!isMouse)
+            if (ShouldExcludeDevice(name))
             {
-                isTouchpad = CheckIsTouchpad(fd);
-                if (isTouchpad)
+                Log.Debug("Excluding system/auxiliary device: {Name}", name);
+                return new InputDevice
                 {
-                    isMouse = true;
-                    Log.Debug("[InputDeviceHelper] Device '{Name}' detected as touchpad, treating as mouse", name);
-                }
+                    Path = devicePath,
+                    Name = name,
+                    IsMouse = false,
+                    IsKeyboard = false
+                };
             }
 
-            if (!isMouse)
-            {
-                isMouse = IsMouseFromProcDevices(devicePath, name, procDevicesContent);
-            }
+            bool isMouse = HasKernelHandler(devicePath, name, procDevicesContent, "mouse") ||
+                           CheckIsMouse(fd) ||
+                           CheckIsTouchpad(fd);
 
-            if (isKeyboard && !isMouse && name.Contains(" Keyboard"))
-            {
-                if (BelongsToMouseDevice(name, procDevicesContent))
-                {
-                    Log.Debug("[InputDeviceHelper] Excluding '{Name}' - keyboard interface of a mouse device", name);
-                    isKeyboard = false;
-                }
-            }
-
-            if (isMouse && !isKeyboard && name.Contains(" Mouse"))
-            {
-                if (BelongsToKeyboardDevice(name, procDevicesContent))
-                {
-                    Log.Debug("[InputDeviceHelper] Excluding '{Name}' - mouse interface of a keyboard device", name);
-                    isMouse = false;
-                }
-            }
+            bool isKeyboard = CheckIsKeyboard(fd) ||
+                              HasKernelHandler(devicePath, name, procDevicesContent, "kbd");
 
             return new InputDevice
             {
@@ -162,53 +142,90 @@ public class InputDeviceHelper
         }
     }
 
+    private static bool ShouldExcludeDevice(string name)
+    {
+        if (name.Equals("Power Button", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("Sleep Button", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("Video Bus", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Lid Switch", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (name.EndsWith(" Consumer Control", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(" System Control", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (name.Contains("WMI", StringComparison.OrdinalIgnoreCase) &&
+            name.Contains("hotkeys", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (name.Contains("AVRCP", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    private static bool HasKernelHandler(string devicePath, string deviceName, string? procContent, string handlerType)
+    {
+        if (string.IsNullOrEmpty(procContent)) return false;
+
+        var eventName = Path.GetFileName(devicePath);
+        var blocks = procContent.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var block in blocks)
+        {
+            if (!block.Contains(eventName, StringComparison.Ordinal))
+                continue;
+
+            bool nameMatches = false;
+            bool hasHandler = false;
+
+            using var reader = new StringReader(block);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (line.StartsWith("N: Name=") && line.Contains(deviceName))
+                    nameMatches = true;
+
+                if (line.StartsWith("H: Handlers=") && line.Contains(eventName))
+                {
+                    hasHandler = handlerType == "mouse"
+                        ? MouseHandlerRegex.IsMatch(line)
+                        : line.Contains("kbd", StringComparison.Ordinal);
+                }
+            }
+
+            if (nameMatches && hasHandler) return true;
+        }
+
+        return false;
+    }
+
     private static bool CheckIsMouse(int fd)
     {
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_REL))
-            return false;
-
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_KEY))
-            return false;
-
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, UInputNative.BTN_LEFT))
-            return false;
-
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_REL, UInputNative.REL_X))
-            return false;
-
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_REL, UInputNative.REL_Y))
-            return false;
-
-        return true;
+        return HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_REL) &&
+               HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_KEY) &&
+               HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, UInputNative.BTN_LEFT) &&
+               HasCapability(fd, EvdevNative.EVIOCGBIT_REL, UInputNative.REL_X) &&
+               HasCapability(fd, EvdevNative.EVIOCGBIT_REL, UInputNative.REL_Y);
     }
 
     private static bool CheckIsTouchpad(int fd)
     {
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_ABS))
+        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_ABS) ||
+            !HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_KEY))
             return false;
 
-        if (!HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_KEY))
-            return false;
+        bool hasButton = HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, UInputNative.BTN_TOUCH) ||
+                         HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, UInputNative.BTN_LEFT);
+        if (!hasButton) return false;
 
-        bool hasTouchBtn = HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, UInputNative.BTN_TOUCH);
-        bool hasLeftBtn = HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, UInputNative.BTN_LEFT);
-        
-        if (!hasTouchBtn && !hasLeftBtn)
-            return false;
+        bool hasPosition = (HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_X) &&
+                            HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_Y)) ||
+                           (HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_MT_POSITION_X) &&
+                            HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_MT_POSITION_Y));
+        if (!hasPosition) return false;
 
-        bool hasAbsX = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_X);
-        bool hasAbsY = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_Y);
-
-        bool hasMtX = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_MT_POSITION_X);
-        bool hasMtY = HasCapability(fd, EvdevNative.EVIOCGBIT_ABS, UInputNative.ABS_MT_POSITION_Y);
-
-        if (!((hasAbsX && hasAbsY) || (hasMtX && hasMtY)))
-            return false;
-
-        if (HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_REL))
-            return false;
-
-        return true;
+        return !HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_REL);
     }
 
     private static bool CheckIsKeyboard(int fd)
@@ -216,92 +233,56 @@ public class InputDeviceHelper
         if (!HasCapability(fd, EvdevNative.EVIOCGBIT_EV, UInputNative.EV_KEY))
             return false;
 
-        bool hasEsc = HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, 1); 
-        bool hasEnter = HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, 28); 
-        
-        if (!hasEsc && !hasEnter)
-            return false;
+        bool hasEscOrEnter = HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, 1) ||
+                             HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, 28);
+        if (!hasEscOrEnter) return false;
 
-        bool hasLetterKey = false;
         for (int keyCode = 30; keyCode <= 44; keyCode++)
         {
             if (HasCapability(fd, EvdevNative.EVIOCGBIT_KEY, keyCode))
-            {
-                hasLetterKey = true;
-                break;
-            }
+                return true;
         }
-        
-        if (!hasLetterKey)
-            return false;
 
-        return true;
+        return false;
     }
 
     private static bool HasCapability(int fd, ulong type, int code)
     {
-        byte[] mask = new byte[64]; 
+        byte[] mask = new byte[64];
         int len = EvdevNative.ioctl(fd, type, mask);
-        
-        if (len < 0)
-            return false;
+        if (len < 0) return false;
 
         int byteIndex = code / 8;
         int bitIndex = code % 8;
 
-        if (byteIndex >= mask.Length)
-            return false;
-
-        return (mask[byteIndex] & (1 << bitIndex)) != 0;
+        return byteIndex < mask.Length && (mask[byteIndex] & (1 << bitIndex)) != 0;
     }
 
-    /// <summary>
-    /// Gets all supported key codes from a device by querying EVIOCGBIT_KEY.
-    /// Similar to what evtest does to list capabilities.
-    /// </summary>
-    /// <param name="devicePath">Path to the input device (e.g., /dev/input/event0)</param>
-    /// <returns>Dictionary of key code to key name for all supported keys</returns>
     public static Dictionary<int, string> GetSupportedKeyCodes(string devicePath)
     {
         var result = new Dictionary<int, string>();
-        
+
         int fd = EvdevNative.open(devicePath, EvdevNative.O_RDONLY);
         if (fd < 0)
         {
-            Log.Warning("[InputDeviceHelper] Cannot open {Path} for key code enumeration", devicePath);
+            Log.Warning("Cannot open {Path} for key enumeration", devicePath);
             return result;
         }
 
         try
         {
-            // Get the key capability bitmask (need larger buffer for full KEY_MAX range)
-            // KEY_MAX is 0x2FF (767), so we need at least 96 bytes (767/8 + 1)
-            byte[] keyMask = new byte[128]; 
+            byte[] keyMask = new byte[128];
             int len = EvdevNative.ioctl(fd, EvdevNative.EVIOCGBIT_KEY, keyMask);
-            
-            if (len < 0)
-            {
-                Log.Warning("[InputDeviceHelper] Failed to get key capabilities for {Path}", devicePath);
-                return result;
-            }
+            if (len < 0) return result;
 
-            // Iterate through all possible key codes
             for (int keyCode = 0; keyCode <= LinuxKeyCodeRegistry.KEY_MAX; keyCode++)
             {
                 int byteIndex = keyCode / 8;
                 int bitIndex = keyCode % 8;
 
-                if (byteIndex >= keyMask.Length)
-                    continue;
-
-                if ((keyMask[byteIndex] & (1 << bitIndex)) != 0)
-                {
-                    string keyName = LinuxKeyCodeRegistry.GetKeyName(keyCode);
-                    result[keyCode] = keyName;
-                }
+                if (byteIndex < keyMask.Length && (keyMask[byteIndex] & (1 << bitIndex)) != 0)
+                    result[keyCode] = LinuxKeyCodeRegistry.GetKeyName(keyCode);
             }
-
-            Log.Information("[InputDeviceHelper] Found {Count} supported keys on {Path}", result.Count, devicePath);
         }
         finally
         {
@@ -311,170 +292,27 @@ public class InputDeviceHelper
         return result;
     }
 
-    private static bool IsMouseFromProcDevices(string devicePath, string deviceName, string? procDevicesContent)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(procDevicesContent))
-                return false;
-
-            var eventName = Path.GetFileName(devicePath);
-
-            var devices = procDevicesContent.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var device in devices)
-            {
-                var lines = device.Split('\n');
-                bool nameMatches = false;
-                bool hasMouseHandler = false;
-                bool eventMatches = false;
-
-                foreach (var line in lines)
-                {
-                    if (line.StartsWith("N: Name=") && line.Contains(deviceName))
-                    {
-                        nameMatches = true;
-                    }
-
-                    if (line.StartsWith("H: Handlers="))
-                    {
-                        if (line.Contains(eventName) && 
-                            System.Text.RegularExpressions.Regex.IsMatch(line, @"\bmouse\d+\b"))
-                        {
-                            hasMouseHandler = true;
-                            eventMatches = true;
-                        }
-                    }
-                }
-
-                if (nameMatches && hasMouseHandler && eventMatches)
-                {
-                    return true;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "[InputDeviceHelper] Failed to read /proc/bus/input/devices");
-        }
-
-        return false;
-    }
-
-    private static bool BelongsToMouseDevice(string deviceName, string? procDevicesContent)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(procDevicesContent))
-                return false;
-
-            var devices = procDevicesContent.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-            var baseName = deviceName.Replace(" Keyboard", "").Trim();
-
-            foreach (var device in devices)
-            {
-                var lines = device.Split('\n');
-                bool nameMatches = false;
-                bool hasMouseHandler = false;
-
-                foreach (var line in lines)
-                {
-                    if (line.StartsWith("N: Name=") && line.Contains($"\"{baseName}\""))
-                    {
-                        nameMatches = true;
-                    }
-                    
-                    if (line.StartsWith("H: Handlers=") && 
-                        System.Text.RegularExpressions.Regex.IsMatch(line, @"\bmouse\d+\b"))
-                    {
-                        hasMouseHandler = true;
-                    }
-                }
-
-                if (nameMatches && hasMouseHandler)
-                {
-                    return true;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "[InputDeviceHelper] Failed to check mouse device");
-        }
-
-        return false;
-    }
-
-    private static bool BelongsToKeyboardDevice(string deviceName, string? procDevicesContent)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(procDevicesContent))
-                return false;
-
-            var devices = procDevicesContent.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-            var baseName = deviceName.Replace(" Mouse", "").Trim();
-            foreach (var device in devices)
-            {
-                var lines = device.Split('\n');
-                bool nameMatches = false;
-                bool hasKbdHandler = false;
-
-                foreach (var line in lines)
-                {
-                    if (line.StartsWith("N: Name=") && line.Contains($"\"{baseName}\""))
-                    {
-                        nameMatches = true;
-                    }
-                    
-                    if (line.StartsWith("H: Handlers=") && line.Contains("kbd"))
-                    {
-                        hasKbdHandler = true;
-                    }
-                }
-                if (nameMatches && hasKbdHandler)
-                {
-                    return true;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "[InputDeviceHelper] Failed to check keyboard device");
-        }
-
-        return false;
-    }
-
     private static bool IsVirtualDevice(string devicePath, string deviceName)
     {
         if (deviceName.Contains("Virtual", StringComparison.OrdinalIgnoreCase) ||
             deviceName.Contains("uinput", StringComparison.OrdinalIgnoreCase) ||
             deviceName.Contains("CrossMacro", StringComparison.OrdinalIgnoreCase))
-        {
-            Log.Debug("[InputDeviceHelper] Device '{Name}' identified as virtual by name pattern", deviceName);
             return true;
-        }
 
         try
         {
             var eventName = Path.GetFileName(devicePath);
             var sysPath = $"/sys/class/input/{eventName}/device";
-            
+
             if (Directory.Exists(sysPath))
             {
                 var realPath = new DirectoryInfo(sysPath).FullName;
                 if (realPath.Contains("/sys/devices/virtual/"))
-                {
-                    Log.Debug("[InputDeviceHelper] Device '{Name}' at {Path} identified as virtual by sysfs path: {SysPath}", 
-                        deviceName, devicePath, realPath);
                     return true;
-                }
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Log.Debug(ex, "[InputDeviceHelper] Failed to check sysfs path for {Path}", devicePath);
         }
 
         return false;
@@ -482,30 +320,21 @@ public class InputDeviceHelper
 
     private static bool CanOpenForReading(string devicePath)
     {
-        int testFd = -1;
+        int fd = -1;
         try
         {
-            testFd = EvdevNative.open(devicePath, EvdevNative.O_RDONLY | EvdevNative.O_NONBLOCK);
-            if (testFd < 0)
-            {
-                return false;
-            }
+            fd = EvdevNative.open(devicePath, EvdevNative.O_RDONLY | EvdevNative.O_NONBLOCK);
+            if (fd < 0) return false;
 
-            byte[] testBuffer = new byte[24];
-            IntPtr bufferPtr = Marshal.AllocHGlobal(testBuffer.Length);
+            IntPtr bufferPtr = Marshal.AllocHGlobal(24);
             try
             {
-                var result = EvdevNative.read(testFd, bufferPtr, (IntPtr)testBuffer.Length);
-                
+                var result = EvdevNative.read(fd, bufferPtr, (IntPtr)24);
                 if (result.ToInt32() < 0)
                 {
                     int errno = Marshal.GetLastWin32Error();
-                    if (errno != 11 && errno != 0) 
-                    {
-                        return false;
-                    }
+                    return errno == 11 || errno == 0; // EAGAIN veya başarılı
                 }
-                
                 return true;
             }
             finally
@@ -519,10 +348,7 @@ public class InputDeviceHelper
         }
         finally
         {
-            if (testFd >= 0)
-            {
-                EvdevNative.close(testFd);
-            }
+            if (fd >= 0) EvdevNative.close(fd);
         }
     }
 }
