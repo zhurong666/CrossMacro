@@ -14,7 +14,7 @@ on:
 
 jobs:
   # ============================================
-  # Stage 1: Build Core Binaries (shared by all)
+  # Stage 1: Build Core Binaries
   # ============================================
   build-core:
     name: Build Core Binaries
@@ -28,77 +28,35 @@ jobs:
     - name: Extract version
       id: version
       run: |
-        if [ "${{ github.event_name }}" == "push" ]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          VERSION=${VERSION#.}
-        else
-          VERSION="${{ github.event.inputs.version }}"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
+        echo "version=1.0.0-arm64" >> $GITHUB_OUTPUT
+
+    # 注意：这里可能需要改为 .NET 8 或 9，因为 .NET 10 是预览版，UOS 可能缺依赖
+    # 但原项目用了 10，我们暂时保持不动，依靠 Self-contained
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: '10.0.x' 
     
-    - name: Build Linux UI binary
+    # 【核心修改点】：构建 Linux ARM64 版本
+    - name: Build Linux ARM64 binary
       run: |
         dotnet publish src/CrossMacro.UI/CrossMacro.UI.csproj \
           -c Release \
-          -r linux-x64 \
+          -r linux-arm64 \
           --self-contained true \
           -p:PublishSingleFile=true \
-          -p:PublishTrimmed=true \
-          -p:PublishAot=false \
+          -p:PublishTrimmed=false \
           -p:DebugType=None \
           -p:DebugSymbols=false \
-          -p:Version=${{ steps.version.outputs.version }} \
-          -o publish-linux/
+          -o publish-linux-arm64/
     
-    - name: Build Windows UI binary
-      run: |
-        dotnet publish src/CrossMacro.UI/CrossMacro.UI.csproj \
-          -c Release \
-          -r win-x64 \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:PublishTrimmed=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:DebugType=None \
-          -p:DebugSymbols=false \
-          -p:Version=${{ steps.version.outputs.version }} \
-          -o publish-windows/
-    
-    - name: Build Linux Daemon (Native AOT)
-      run: |
-        dotnet publish src/CrossMacro.Daemon/CrossMacro.Daemon.csproj \
-          -c Release \
-          -r linux-x64 \
-          -p:Version=${{ steps.version.outputs.version }} \
-          -o publish-daemon/
-    
-    - name: Upload Linux UI artifacts
-      uses: actions/upload-artifact@v6
+    # 上传编译好的文件，不走打包流程了
+    - name: Upload Linux ARM64 artifacts
+      uses: actions/upload-artifact@v4   # 注意：原项目用的 v6/v7 可能比较新，v4 是目前通用的
       with:
-        name: linux-binary
-        path: publish-linux/
-        retention-days: 1
-    
-    - name: Upload Linux Daemon artifacts
-      uses: actions/upload-artifact@v6
-      with:
-        name: linux-daemon
-        path: publish-daemon/
-        retention-days: 1
-    
-    - name: Upload Windows artifacts
-      uses: actions/upload-artifact@v6
-      with:
-        name: windows-binary
-        path: publish-windows/
-        retention-days: 1
-
+        name: CrossMacro-Linux-ARM64
+        path: publish-linux-arm64/
+        retention-days: 3
   # ============================================
   # Stage 2: Parallel Packaging (all run simultaneously)
   # ============================================
