@@ -15,20 +15,30 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Load log level from settings before logger initialization
-        var logLevel = SettingsService.TryLoadLogLevelEarly();
-        
-        // Initialize logger with user's preferred level
-        LoggerSetup.Initialize(logLevel);
-
         try
         {
+            // Load log level from settings before logger initialization
+            var logLevel = SettingsService.TryLoadLogLevelEarly();
+            
+            // Initialize logger with user's preferred level
+            LoggerSetup.Initialize(logLevel);
+
             Log.Information("Starting CrossMacro application");
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
-            Log.Fatal(ex, "Application terminated unexpectedly");
+            // Try to log using Serilog if available
+            try { Log.Fatal(ex, "Application terminated unexpectedly"); } catch { }
+
+            // Emergency logging to disk in case Logger failed to initialize or write
+            try 
+            {
+                var crashLogPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "crossmacro_crash.log");
+                System.IO.File.AppendAllText(crashLogPath, 
+                    $"[{DateTime.Now}] CRITICAL CRASH:\n{ex}\n\n=================================\n\n");
+            }
+            catch { /* Total failure, nothing we can do */ }
         }
         finally
         {
