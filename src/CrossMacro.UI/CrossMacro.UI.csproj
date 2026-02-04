@@ -35,10 +35,14 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.11" />
 
+    <!-- Core Dependencies -->
     <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
-
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+
+    <!-- Explicit Windows Native Assets (Required for self-contained builds) -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.9" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Win32" Version="8.3.1.1" />
 
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.11">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
